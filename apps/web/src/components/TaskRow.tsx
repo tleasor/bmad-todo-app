@@ -1,20 +1,54 @@
-import type { JSX } from "solid-js";
+import { Show, type JSX } from "solid-js";
 import type { Task } from "../data/api";
+import { LIVE_REGION_RETRY_EXHAUSTED } from "../data/announcements";
+import { useCaptureSyncStatus } from "../data/captureSyncStore";
+import "./TaskRow.css";
 
 interface TaskRowProps {
   task: Task;
 }
 
 export function TaskRow(props: TaskRowProps): JSX.Element {
+  const sync = useCaptureSyncStatus(() => props.task.id);
   return (
     <li
       tabindex="0"
-      class="task-row flex items-center gap-3 py-3 px-4 min-[900px]:px-2 hover:bg-token-bg-subtle"
+      class="task-row flex flex-col py-3 px-4 min-[900px]:px-2 hover:bg-token-bg-subtle"
+      classList={{ "task-row--retry-exhausted": sync()?.status === "exhausted" }}
     >
-      <Checkbox />
-      <span class="task-row__text">{props.task.text}</span>
-      <DeleteButton />
+      <div class="task-row__primary">
+        <Checkbox />
+        <span class="task-row__text">{props.task.text}</span>
+        <Show when={sync()?.status === "pending"}>
+          <SyncIndicator />
+        </Show>
+        <Show when={sync()?.status === "exhausted"}>
+          <RetryAction onRetry={sync()?.retry ?? noop} />
+        </Show>
+        <DeleteButton />
+      </div>
+      <Show when={sync()?.status === "exhausted"}>
+        <ErrorMessage />
+      </Show>
     </li>
+  );
+}
+
+const noop = (): void => undefined;
+
+function SyncIndicator(): JSX.Element {
+  return <span aria-label="Saving" class="task-row__sync-indicator" />;
+}
+
+function ErrorMessage(): JSX.Element {
+  return <p class="task-row__error-message">{LIVE_REGION_RETRY_EXHAUSTED}</p>;
+}
+
+function RetryAction(props: { onRetry: () => void }): JSX.Element {
+  return (
+    <button type="button" class="task-row__retry-action" onClick={() => props.onRetry()}>
+      Retry
+    </button>
   );
 }
 

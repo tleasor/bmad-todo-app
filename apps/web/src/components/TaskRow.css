@@ -1,0 +1,63 @@
+.task-row__primary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.task-row__sync-indicator {
+  width: 14px;
+  height: 14px;
+  border: 2px dashed var(--color-status-pending);
+  border-radius: var(--radius-full);
+  display: inline-block;
+  flex-shrink: 0;
+  animation: task-row__sync-spin 1500ms linear infinite;
+}
+
+@keyframes task-row__sync-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-row__sync-indicator {
+    animation: none;
+  }
+}
+
+.task-row--retry-exhausted {
+  background: var(--color-status-error-subtle);
+}
+
+.task-row__error-message {
+  font-size: var(--text-meta-size);
+  line-height: var(--text-meta-line-height);
+  font-weight: 400;
+  color: var(--color-status-error);
+  margin: 4px 0 0 0;
+}
+
+.task-row__retry-action {
+  font-size: var(--text-meta-size);
+  line-height: var(--text-meta-line-height);
+  font-weight: 500;
+  color: var(--color-accent-default);
+  /* Surface backdrop for contrast: accent-default on status-error-subtle
+     measures 4.37:1 (axe-core, fails AA 4.5). Re-anchoring the immediate
+     background to the canvas surface yields ~7:1 contrast for the button
+     text without introducing a new color token. */
+  background: var(--color-bg-surface);
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.task-row__retry-action:focus-visible {
+  outline: 2px solid var(--color-accent-default);
+  outline-offset: 2px;
+}
