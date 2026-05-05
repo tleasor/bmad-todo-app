@@ -115,11 +115,55 @@ describe("taskRepo", () => {
     });
   });
 
-  describe("stubs deferred to later stories", () => {
-    it("update throws (Story 2.1)", () => {
-      expect(() => repo.update("some-id", { completed: true })).toThrow(/Story 2.1/);
+  describe("update", () => {
+    it("flips completed from false to true and returns the updated task", () => {
+      const id = Bun.randomUUIDv7();
+      repo.create({ id, text: "task" });
+      const updated = repo.update(id, { completed: true });
+      expect(updated).toBeDefined();
+      expect(updated?.completed).toBe(true);
+      expect(updated?.id).toBe(id);
     });
 
+    it("does not modify createdAt", () => {
+      const id = Bun.randomUUIDv7();
+      const { task: original } = repo.create({ id, text: "task" });
+      const updated = repo.update(id, { completed: true });
+      expect(updated?.createdAt).toBe(original.createdAt);
+    });
+
+    it("sets updatedAt to a new value greater than or equal to the original", () => {
+      const id = Bun.randomUUIDv7();
+      const before = Date.now();
+      const { task: original } = repo.create({ id, text: "task" });
+      const updated = repo.update(id, { completed: true });
+      expect(updated?.updatedAt).toBeGreaterThanOrEqual(original.updatedAt);
+      expect(updated?.updatedAt).toBeGreaterThanOrEqual(before);
+    });
+
+    it("returns undefined for a non-existent id", () => {
+      expect(repo.update("no-such-id", { completed: true })).toBeUndefined();
+    });
+
+    it("target-state idempotency: calling update twice with completed:true returns same result", () => {
+      const id = Bun.randomUUIDv7();
+      repo.create({ id, text: "task" });
+      const first = repo.update(id, { completed: true });
+      const second = repo.update(id, { completed: true });
+      expect(first?.completed).toBe(true);
+      expect(second?.completed).toBe(true);
+    });
+
+    it("can flip back to completed:false", () => {
+      const id = Bun.randomUUIDv7();
+      repo.create({ id, text: "task" });
+      repo.update(id, { completed: true });
+      const reverted = repo.update(id, { completed: false });
+      expect(reverted?.completed).toBe(false);
+    });
+  });
+
+  describe("stubs deferred to later stories", () => {
     it("delete throws (Story 3.1)", () => {
       expect(() => repo.delete("some-id")).toThrow(/Story 3.1/);
     });

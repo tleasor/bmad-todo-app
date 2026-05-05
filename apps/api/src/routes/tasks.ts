@@ -8,6 +8,10 @@ const TaskCreateBodySchema = t.Object({
   text: t.String({ minLength: 1, maxLength: MAX_TASK_TEXT_LENGTH }),
 });
 
+const TaskPatchBodySchema = t.Object({
+  completed: t.Boolean(),
+});
+
 const TaskResponseSchema = t.Object({
   id: t.String(),
   text: t.String(),
@@ -32,6 +36,21 @@ export const tasksRoute = new Elysia()
     },
     {
       body: TaskCreateBodySchema,
+      response: TaskResponseSchema,
+    },
+  )
+  .patch(
+    "/api/tasks/:id",
+    ({ body, params }) => {
+      const task = taskRepo.update(params.id, { completed: body.completed });
+      if (!task) {
+        throw new AppError("not_found", "Task not found");
+      }
+      return task;
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      body: TaskPatchBodySchema,
       response: TaskResponseSchema,
     },
   );

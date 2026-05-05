@@ -73,9 +73,15 @@ export const createTaskRepo = (db: Database): TaskRepo => {
     return tx();
   };
 
-  // implemented in Story 2.1
-  const update = (_id: string, _input: { completed: boolean }): Task | undefined => {
-    throw new Error("taskRepo.update: implemented in Story 2.1");
+  const update = (id: string, input: { completed: boolean }): Task | undefined => {
+    const now = Date.now();
+    const result = db.run(`UPDATE tasks SET completed = ?, updated_at = ? WHERE id = ?`, [
+      input.completed ? 1 : 0,
+      now,
+      id,
+    ]);
+    if (result.changes === 0) return undefined;
+    return get(id);
   };
 
   // implemented in Story 3.1

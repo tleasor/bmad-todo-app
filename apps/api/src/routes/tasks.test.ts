@@ -52,6 +52,23 @@ const get = async (app: AnyElysia, ip: string = TEST_IP): Promise<Response> =>
     }),
   );
 
+const patch = async (
+  app: AnyElysia,
+  id: string,
+  body: unknown,
+  ip: string = TEST_IP,
+): Promise<Response> =>
+  app.handle(
+    new Request(`http://localhost/api/tasks/${id}`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": ip,
+      },
+      body: JSON.stringify(body),
+    }),
+  );
+
 describe("tasks route", () => {
   let testDb: Database;
   let testRepo: TaskRepo;
@@ -201,6 +218,94 @@ describe("tasks route", () => {
       expect(envelope.error.code).toBe("rate_limited");
       expect(envelope.error.message.length).toBeGreaterThan(0);
       expect(envelope.requestId.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("PATCH /api/tasks/:id", () => {
+    it("returns 200 with the updated task when toggled to completed", async () => {
+      const id = Bun.randomUUIDv7();
+      const postRes = await post(app, { id, text: "toggle me" });
+      const original = (await postRes.json()) as TaskBody;
+      const res = await patch(app, id, { completed: true });
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type") ?? "").toContain("application/json");
+      const body = (await res.json()) as TaskBody;
+      expect(body.id).toBe(id);
+      expect(body.text).toBe("toggle me");
+      expect(body.completed).toBe(true);
+      expect(typeof body.createdAt).toBe("number");
+      expect(body.createdAt).toBe(original.createdAt);
+      expect(typeof body.updatedAt).toBe("number");
+      expect(body.updatedAt).toBeGreaterThanOrEqual(original.updatedAt);
+    });
+
+    it("returns 200 when toggled back to active", async () => {
+      const id = Bun.randomUUIDv7();
+      await post(app, { id, text: "toggle me" });
+      await patch(app, id, { completed: true });
+      const res = await patch(app, id, { completed: false });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as TaskBody;
+      expect(body.completed).toBe(false);
+    });
+
+    it("target-state idempotency: PATCH with completed:true twice returns same result", async () => {
+      const id = Bun.randomUUIDv7();
+      await post(app, { id, text: "idempotent" });
+      const first = await patch(app, id, { completed: true });
+      const firstBody = (await first.json()) as TaskBody;
+      const second = await patch(app, id, { completed: true });
+      const secondBody = (await second.json()) as TaskBody;
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      expect(firstBody.completed).toBe(true);
+      expect(secondBody.completed).toBe(true);
+    });
+
+    it("returns 404 not_found envelope when id does not exist", async () => {
+      const res = await patch(app, "no-such-id", { completed: true });
+      expect(res.status).toBe(404);
+      const body = (await res.json()) as ErrorBody;
+      expect(body.error.code).toBe("not_found");
+      expect(body.error.message.length).toBeGreaterThan(0);
+      expect(body.requestId.length).toBeGreaterThan(0);
+    });
+
+    it("returns 400 validation_error when completed is not a boolean", async () => {
+      const id = Bun.randomUUIDv7();
+      await post(app, { id, text: "test" });
+      const res = await patch(app, id, { completed: "yes" });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as ErrorBody;
+      expect(body.error.code).toBe("validation_error");
+    });
+
+    it("returns 400 validation_error when completed field is missing", async () => {
+      const id = Bun.randomUUIDv7();
+      await post(app, { id, text: "test" });
+      const res = await patch(app, id, {});
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as ErrorBody;
+      expect(body.error.code).toBe("validation_error");
+    });
+
+    it("returns 429 rate_limited with rate-limit headers after burst exhaustion", async () => {
+      const limitIp = "10.0.0.99";
+      for (let i = 0; i < 20; i += 1) {
+        await post(app, { id: Bun.randomUUIDv7(), text: `t${i}` }, limitIp);
+      }
+      const id = Bun.randomUUIDv7();
+      await post(app, { id, text: "seed" });
+      const res = await patch(app, id, { completed: true }, limitIp);
+      expect(res.status).toBe(429);
+      expect(res.headers.get("x-ratelimit-limit")).toBe("20");
+      expect(res.headers.get("x-ratelimit-remaining")).toBe("0");
+      const reset = res.headers.get("x-ratelimit-reset");
+      expect(reset).not.toBeNull();
+      expect(Number.isFinite(Number(reset))).toBe(true);
+      expect(res.headers.get("retry-after")).not.toBeNull();
+      const body = (await res.json()) as ErrorBody;
+      expect(body.error.code).toBe("rate_limited");
     });
   });
 
