@@ -141,6 +141,14 @@
 - **[optional]** `apps/api/src/routes/tasks.ts` — `params: t.Object({ id: t.String() })` on `DELETE /api/tasks/:id` imposes no `minLength` or UUID format constraint. Pre-existing pattern from Story 2.1; idempotent behavior handles unknown IDs correctly (204 regardless).
 - **[optional]** `apps/api/src/env.ts` — `IS_DEV: NODE_ENV !== "production"` means any non-production value (including `staging`, `test`, `qa`) exposes the destructive `DELETE /api/tasks` endpoint. Broader architectural concern; out of scope for this story.
 
+## Deferred from: code review of 4-2-tab-order-within-and-between-rows (2026-05-01)
+
+- **[optional]** `e2e/keyboard.spec.ts` — SyncIndicator non-focusability only implicitly covered by the normal-row Tab sequence (Checkbox→DeleteButton skipping the `<span>`). No explicit negative assertion. `<span>` is architecturally non-focusable; implicit coverage is adequate for now.
+- **[optional]** `e2e/keyboard.spec.ts` — Checkbox disabled-state tab order during in-flight toggle is not tested. No AC covers tabbing while a toggle mutation is pending and the Checkbox is `disabled`. Out of story scope.
+- **[optional]** `e2e/keyboard.spec.ts` — RetryAction absence from normal rows only implicitly verified. The Checkbox→DeleteButton Tab sequence proves RetryAction is absent, but no explicit `toHaveCount(0)` assertion.
+- **[optional]** `e2e/keyboard.spec.ts` — Focus restoration after ErrorMessage unmounts (successful retry) not tested. Out of scope; no AC covers post-retry focus management in this story.
+- **[optional]** `e2e/keyboard.spec.ts` — Tab focus during the `.task-row--leaving` delete animation not tested. Out of scope; owned by Story 3.2/3.3 scope.
+
 ## Deferred from: code review of 4-1-arrow-up-down-j-k-row-navigation (2026-05-01)
 
 - **[pre-epic-4]** `apps/web/src/components/TaskRow.tsx:36-51` — Story 4.4 typing-anywhere forward-compat hazard: if Story 4.4 adds a document-level keydown listener, its precedence vs. the row-level `j`/`k` handlers is unspecified. The epic spec excludes `j`/`k` from typing-anywhere-captures, but no integration contract or ordering guard exists today. Story 4.4 must define the precedence explicitly.
