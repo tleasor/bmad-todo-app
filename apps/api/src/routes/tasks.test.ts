@@ -69,6 +69,22 @@ const patch = async (
     }),
   );
 
+const del = async (app: AnyElysia, id: string, ip: string = TEST_IP): Promise<Response> =>
+  app.handle(
+    new Request(`http://localhost/api/tasks/${id}`, {
+      method: "DELETE",
+      headers: { "x-forwarded-for": ip },
+    }),
+  );
+
+const delAll = async (app: AnyElysia, ip: string = TEST_IP): Promise<Response> =>
+  app.handle(
+    new Request("http://localhost/api/tasks", {
+      method: "DELETE",
+      headers: { "x-forwarded-for": ip },
+    }),
+  );
+
 describe("tasks route", () => {
   let testDb: Database;
   let testRepo: TaskRepo;
@@ -317,6 +333,54 @@ describe("tasks route", () => {
       expect(typeof body.error.code).toBe("string");
       expect(typeof body.error.message).toBe("string");
       expect(typeof body.requestId).toBe("string");
+    });
+  });
+
+  describe("DELETE /api/tasks/:id", () => {
+    it("returns 204 when the task exists", async () => {
+      const id = Bun.randomUUIDv7();
+      await post(app, { id, text: "to delete" });
+      const res = await del(app, id);
+      expect(res.status).toBe(204);
+      expect(await res.text()).toBe("");
+    });
+
+    it("returns 204 when the id does not exist (idempotent)", async () => {
+      const res = await del(app, "nonexistent-id");
+      expect(res.status).toBe(204);
+      expect(await res.text()).toBe("");
+    });
+
+    it("returns 429 rate_limited with rate-limit headers after burst exhaustion", async () => {
+      const limitIp = "10.0.0.42";
+      for (let i = 0; i < 20; i += 1) {
+        await post(app, { id: Bun.randomUUIDv7(), text: `t${i}` }, limitIp);
+      }
+      const res = await del(app, Bun.randomUUIDv7(), limitIp);
+      expect(res.status).toBe(429);
+      expect(res.headers.get("x-ratelimit-limit")).toBe("20");
+      expect(res.headers.get("x-ratelimit-remaining")).toBe("0");
+      const reset = res.headers.get("x-ratelimit-reset");
+      expect(reset).not.toBeNull();
+      expect(Number.isFinite(Number(reset))).toBe(true);
+      expect(res.headers.get("retry-after")).not.toBeNull();
+      const body = (await res.json()) as ErrorBody;
+      expect(body.error.code).toBe("rate_limited");
+    });
+  });
+
+  describe("DELETE /api/tasks (dev fixture reset)", () => {
+    it("returns 204 and removes all tasks when IS_DEV is true", async () => {
+      await post(app, { id: Bun.randomUUIDv7(), text: "task a" });
+      await post(app, { id: Bun.randomUUIDv7(), text: "task b" });
+
+      const res = await delAll(app);
+      expect(res.status).toBe(204);
+      expect(await res.text()).toBe("");
+
+      const listRes = await get(app);
+      const body = (await listRes.json()) as TaskBody[];
+      expect(body).toEqual([]);
     });
   });
 });

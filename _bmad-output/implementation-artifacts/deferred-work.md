@@ -114,3 +114,11 @@
 - **[optional]** `apps/web/src/data/queries.test.tsx` — `capturedCancelCount` timing-sensitive under async reordering. Low risk today.
 - **[pre-epic-3]** `apps/web/src/data/queries.ts` — `pendingToggleTimers` entries are never removed when a `TaskRow` component unmounts. If a task is deleted (Story 3.2) while a toggle timer is in-flight, the timer fires and writes to `toggleSyncStore` for a dead task ID. *Story 3.2 must add a cleanup signal or guard the timer callback against missing task IDs.*
 - **[optional]** `apps/web/src/components/TaskRow.tsx` — When both `toggleSync` and `captureSync` have entries, capture retry is permanently masked. Architectural decision per AC5/spec.
+
+## Deferred from: code review of 3-1-backend-delete-api-tasks-id-idempotent (2026-05-01)
+
+- **[optional]** `e2e/capture.spec.ts` — E2E `beforeEach` fixture reset (`DELETE /api/tasks`) is awaited without asserting the response status. If the endpoint returns non-204 (e.g. wrong environment, server error), tests continue with dirty state and produce confusing, non-deterministic failures. Fix: assert `res.status() === 204` in the beforeEach.
+- **[optional]** `e2e/capture.spec.ts` — The `beforeEach` fixture reset depends on `IS_DEV=true`. No guard, skip condition, or environment check. Running E2E against any environment where `NODE_ENV=production` (staging, smoke tests) silently leaves stale data across tests. Assumed dev-only test environment per project architecture.
+- **[optional]** `apps/api/src/routes/tasks.test.ts` — No test covers `DELETE /api/tasks` returning 404 when `IS_DEV=false`. The `!env.IS_DEV` branch in the fixture-reset route handler is the only new branch not exercised. Spec marks this optional; `env.IS_DEV` is structurally always `true` in Bun test runner (`NODE_ENV !== "production"`).
+- **[optional]** `apps/api/src/routes/tasks.ts` — `params: t.Object({ id: t.String() })` on `DELETE /api/tasks/:id` imposes no `minLength` or UUID format constraint. Pre-existing pattern from Story 2.1; idempotent behavior handles unknown IDs correctly (204 regardless).
+- **[optional]** `apps/api/src/env.ts` — `IS_DEV: NODE_ENV !== "production"` means any non-production value (including `staging`, `test`, `qa`) exposes the destructive `DELETE /api/tasks` endpoint. Broader architectural concern; out of scope for this story.

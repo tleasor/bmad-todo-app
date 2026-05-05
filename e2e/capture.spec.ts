@@ -1,6 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ request }) => {
+  const res = await request.delete("/api/tasks");
+  expect(res.status()).toBe(204);
+});
+
 const SLOW_NETWORK_DELAY_MS = 800;
 const OPTIMISTIC_WINDOW_MS = 100;
 
@@ -59,6 +64,7 @@ test("two captures land newest-first in the list", async ({ page }) => {
   await page.goto("/");
   const input = page.getByLabel("New task");
   await expect(input).toBeFocused();
+  await waitForListSettled(page);
 
   const stamp = Date.now();
   const firstText = `first ${stamp}`;

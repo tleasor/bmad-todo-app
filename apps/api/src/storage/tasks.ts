@@ -30,6 +30,7 @@ export type TaskRepo = {
   create: (input: { id: string; text: string }) => { task: Task; created: boolean };
   update: (id: string, input: { completed: boolean }) => Task | undefined;
   delete: (id: string) => boolean;
+  deleteAll: () => void;
 };
 
 export const createTaskRepo = (db: Database): TaskRepo => {
@@ -66,6 +67,7 @@ export const createTaskRepo = (db: Database): TaskRepo => {
       const created = result.changes === 1;
       const task = get(input.id);
       if (!task) {
+        // Unreachable: SQLite WAL serializes all writes; no concurrent DELETE can interleave inside db.transaction()
         throw new Error("invariant: task missing after INSERT OR IGNORE");
       }
       return { task, created };
@@ -84,12 +86,16 @@ export const createTaskRepo = (db: Database): TaskRepo => {
     return get(id);
   };
 
-  // implemented in Story 3.1
-  const remove = (_id: string): boolean => {
-    throw new Error("taskRepo.delete: implemented in Story 3.1");
+  const remove = (id: string): boolean => {
+    const result = db.run(`DELETE FROM tasks WHERE id = ?`, [id]);
+    return result.changes > 0;
   };
 
-  return { list, get, create, update, delete: remove };
+  const deleteAll = (): void => {
+    db.exec(`DELETE FROM tasks`);
+  };
+
+  return { list, get, create, update, delete: remove, deleteAll };
 };
 
 // Lazy singleton: the default repo is created on first method call so importing
@@ -106,6 +112,7 @@ export const taskRepo: TaskRepo = {
   create: (input) => ensureRepo().create(input),
   update: (id, input) => ensureRepo().update(id, input),
   delete: (id) => ensureRepo().delete(id),
+  deleteAll: () => ensureRepo().deleteAll(),
 };
 
 export const __setTaskRepoForTests = (repo: TaskRepo): void => {

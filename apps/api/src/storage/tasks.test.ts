@@ -163,9 +163,31 @@ describe("taskRepo", () => {
     });
   });
 
-  describe("stubs deferred to later stories", () => {
-    it("delete throws (Story 3.1)", () => {
-      expect(() => repo.delete("some-id")).toThrow(/Story 3.1/);
+  describe("delete", () => {
+    it("returns true when the row existed", () => {
+      const id = Bun.randomUUIDv7();
+      repo.create({ id, text: "to delete" });
+      expect(repo.delete(id)).toBe(true);
+    });
+
+    it("returns false for a non-existent id (idempotent at repo level)", () => {
+      expect(repo.delete("no-such-id")).toBe(false);
+    });
+
+    it("row count is 0 after deleting the only task", () => {
+      const id = Bun.randomUUIDv7();
+      repo.create({ id, text: "to delete" });
+      repo.delete(id);
+      const count = db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM tasks").get();
+      expect(count?.count).toBe(0);
+    });
+
+    it("deleteAll removes all rows", () => {
+      repo.create({ id: Bun.randomUUIDv7(), text: "a" });
+      repo.create({ id: Bun.randomUUIDv7(), text: "b" });
+      repo.create({ id: Bun.randomUUIDv7(), text: "c" });
+      repo.deleteAll();
+      expect(repo.list()).toEqual([]);
     });
   });
 });
@@ -184,6 +206,7 @@ describe("taskRepo singleton test seam", () => {
       },
       update: () => undefined,
       delete: () => false,
+      deleteAll: () => undefined,
     };
     __setTaskRepoForTests(fake);
     expect(taskRepo.list()).toEqual([]);

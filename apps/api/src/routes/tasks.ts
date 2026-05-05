@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { MAX_TASK_TEXT_LENGTH } from "../constants";
 import { AppError } from "../errors/AppError";
+import { env } from "../env";
 import { taskRepo } from "../storage/tasks";
 
 const TaskCreateBodySchema = t.Object({
@@ -52,5 +53,22 @@ export const tasksRoute = new Elysia()
       params: t.Object({ id: t.String() }),
       body: TaskPatchBodySchema,
       response: TaskResponseSchema,
+    },
+  )
+  .delete("/api/tasks", ({ set }) => {
+    if (!env.IS_DEV) {
+      throw new AppError("not_found", "Not found");
+    }
+    taskRepo.deleteAll();
+    set.status = 204;
+  })
+  .delete(
+    "/api/tasks/:id",
+    ({ params, set }) => {
+      taskRepo.delete(params.id);
+      set.status = 204;
+    },
+    {
+      params: t.Object({ id: t.String() }),
     },
   );
