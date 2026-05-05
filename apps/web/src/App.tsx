@@ -1,13 +1,14 @@
 import type { JSX } from "solid-js";
 import { TaskInput } from "./components/TaskInput";
 import { TaskList } from "./components/TaskList";
-
-const handleTaskSubmit = (_text: string): void => {
-  // Story 1.8 wires the optimistic create flow via TanStack Query.
-  // Until then, the captured task is intentionally dropped.
-};
+import { useCreateTask } from "./data/queries";
+import { createUuidV7 } from "./data/uuid";
 
 export function App(): JSX.Element {
+  const createTask = useCreateTask();
+  const handleTaskSubmit = (text: string): void => {
+    createTask.mutate({ id: createUuidV7(), text });
+  };
   return (
     <main class="app-shell">
       <TaskInput onSubmit={handleTaskSubmit} />

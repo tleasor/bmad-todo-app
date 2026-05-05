@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { createEffect, type JSX } from "solid-js";
 import { tasksApi, type Task, type TasksGetResponse } from "./api";
 import { tasksQueryKey } from "./keys";
-import { useTasks } from "./queries";
+import { useCreateTask, useTasks } from "./queries";
 
 afterEach(() => {
   cleanup();
@@ -22,6 +22,14 @@ const mockTask = (overrides: Partial<Task> = {}): Task => ({
 const makeClient = (): QueryClient =>
   new QueryClient({
     defaultOptions: { queries: { retryDelay: 0 } },
+  });
+
+const makeMutationClient = (): QueryClient =>
+  new QueryClient({
+    defaultOptions: {
+      queries: { retryDelay: 0 },
+      mutations: { retry: false },
+    },
   });
 
 const renderWithClient = (client: QueryClient, ui: () => JSX.Element): ReturnType<typeof render> =>
@@ -139,5 +147,138 @@ describe("useTasks", () => {
     await waitFor(() => (snapshot.isError ? true : undefined));
     expect(snapshot.isError).toBe(true);
     expect(snapshot.error?.message).toContain("boom");
+  });
+});
+
+describe("useCreateTask", () => {
+  let originalCreate: typeof tasksApi.create;
+  let originalCreateFetch: typeof tasksApi.createFetch;
+
+  beforeEach(() => {
+    originalCreate = tasksApi.create;
+    originalCreateFetch = tasksApi.createFetch;
+  });
+
+  afterEach(() => {
+    tasksApi.create = originalCreate;
+    tasksApi.createFetch = originalCreateFetch;
+  });
+
+  const renderProbe = (
+    client: QueryClient,
+  ): { mutation: () => ReturnType<typeof useCreateTask> } => {
+    let captured: ReturnType<typeof useCreateTask> | undefined;
+    const Probe = (): JSX.Element => {
+      captured = useCreateTask();
+      return <div data-testid="probe" />;
+    };
+    renderWithClient(client, () => <Probe />);
+    return {
+      mutation: () => {
+        if (!captured) {
+          throw new Error("Probe did not capture the mutation observer");
+        }
+        return captured;
+      },
+    };
+  };
+
+  it("prepends an optimistic row to the tasks cache when mutate is called", async () => {
+    const existing = mockTask({ id: "0193f000-0000-7000-8000-000000000001", text: "existing" });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [existing]);
+    tasksApi.create = mock((): Promise<Task> => new Promise<Task>(() => {}));
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: "0193f000-0000-7000-8000-00000000000a", text: "new" });
+
+    const cached = await waitFor(() => {
+      const value = client.getQueryData<Task[]>(tasksQueryKey);
+      return value && value.length === 2 ? value : undefined;
+    });
+    expect(cached).toHaveLength(2);
+    expect(cached[0].id).toBe("0193f000-0000-7000-8000-00000000000a");
+    expect(cached[0].text).toBe("new");
+    expect(cached[0].completed).toBe(false);
+    expect(cached[1]).toEqual(existing);
+  });
+
+  it("calls tasksApi.create with the mutate variables", async () => {
+    const serverTask = mockTask({
+      id: "0193f000-0000-7000-8000-00000000000b",
+      text: "submitted",
+    });
+    const createMock = mock(
+      (_input: { id: string; text: string }): Promise<Task> => Promise.resolve(serverTask),
+    );
+    tasksApi.create = createMock;
+    const client = makeMutationClient();
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: "0193f000-0000-7000-8000-00000000000b", text: "submitted" });
+
+    await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
+    expect(createMock.mock.calls).toHaveLength(1);
+    expect(createMock.mock.calls[0]?.[0]).toEqual({
+      id: "0193f000-0000-7000-8000-00000000000b",
+      text: "submitted",
+    });
+  });
+
+  it("does not invalidate the tasks query on success", async () => {
+    const serverTask = mockTask({
+      id: "0193f000-0000-7000-8000-00000000000c",
+      text: "no-invalidate",
+    });
+    tasksApi.create = mock((): Promise<Task> => Promise.resolve(serverTask));
+    const client = makeMutationClient();
+    const invalidateMock = mock(() => Promise.resolve());
+    client.invalidateQueries = invalidateMock as unknown as typeof client.invalidateQueries;
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: "0193f000-0000-7000-8000-00000000000c", text: "no-invalidate" });
+
+    await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
+    expect(invalidateMock.mock.calls).toHaveLength(0);
+  });
+
+  it("does not roll back the optimistic prepend when the mutation errors", async () => {
+    const existing = mockTask({ id: "0193f000-0000-7000-8000-000000000001", text: "existing" });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [existing]);
+    tasksApi.create = mock((): Promise<Task> => Promise.reject(new Error("network")));
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: "0193f000-0000-7000-8000-00000000000d", text: "stays" });
+
+    await waitFor(() => (probe.mutation().isError ? true : undefined));
+    const cached = client.getQueryData<Task[]>(tasksQueryKey);
+    expect(cached).toHaveLength(2);
+    expect(cached?.[0]?.id).toBe("0193f000-0000-7000-8000-00000000000d");
+    expect(cached?.[0]?.text).toBe("stays");
+    expect(cached?.[1]).toEqual(existing);
+  });
+
+  it("cancels in-flight tasks queries before invoking mutationFn", async () => {
+    const serverTask = mockTask({
+      id: "0193f000-0000-7000-8000-00000000000e",
+      text: "ordered",
+    });
+    const client = makeMutationClient();
+    const cancelMock = mock((_filters: { queryKey: readonly unknown[] }) => Promise.resolve());
+    client.cancelQueries = cancelMock as unknown as typeof client.cancelQueries;
+
+    let capturedCancelCount = -1;
+    tasksApi.create = mock((): Promise<Task> => {
+      capturedCancelCount = cancelMock.mock.calls.length;
+      return Promise.resolve(serverTask);
+    });
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: "0193f000-0000-7000-8000-00000000000e", text: "ordered" });
+
+    await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
+    expect(capturedCancelCount).toBe(1);
+    expect(cancelMock.mock.calls[0]?.[0]).toEqual({ queryKey: tasksQueryKey });
   });
 });

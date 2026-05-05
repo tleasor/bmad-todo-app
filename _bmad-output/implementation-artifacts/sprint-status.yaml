@@ -1,5 +1,5 @@
 # generated: 2026-04-28
-# last_updated: 2026-04-30 (story 1.7 review → done)
+# last_updated: 2026-05-01 (story 1.8 → done)
 # project: bmad-todo-app
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-28
-last_updated: 2026-04-30
+last_updated: 2026-05-01
 project: bmad-todo-app
 project_key: NOKEY
 tracking_system: file-system
@@ -50,7 +50,7 @@ development_status:
   1-5-frontend-foundation-solid-app-design-tokens-eden-client-errorboundary-liveregion: done
   1-6-taskinput-component-with-auto-focus-submit-and-character-counter: done
   1-7-task-list-display-tasklist-taskrow-active-state-emptystate-loadingstate: done
-  1-8-optimistic-task-creation-happy-path: backlog
+  1-8-optimistic-task-creation-happy-path: done
   1-9-sync-pending-indicator-and-retry-exhausted-state-for-capture: backlog
   1-10-list-level-fetch-error-state-and-reconnection-recovery: backlog
   1-11-end-to-end-single-service-container-deployment: backlog
