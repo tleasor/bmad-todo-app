@@ -1,0 +1,25 @@
+.app-shell {
+  min-block-size: 100vh;
+  padding-block-start: var(--space-10);
+  padding-block-end: var(--space-10);
+  padding-inline: var(--space-4);
+}
+
+.app-column {
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+@media (min-width: 900px) {
+  .app-shell {
+    padding-block-start: var(--space-12);
+    padding-block-end: var(--space-12);
+  }
+}
+
+@media (min-width: 1200px) {
+  .app-shell {
+    padding-block-start: var(--space-16);
+    padding-block-end: var(--space-16);
+  }
+}

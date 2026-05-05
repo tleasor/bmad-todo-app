@@ -122,6 +122,14 @@ apps/web/src/
 - Optimistic mutations always set `onMutate`, `onError`, `onSettled`. `onError` does **not roll back** the cache (UX contract — row-local sync state surfaces instead).
 - No `useSuspenseQuery` at MVP.
 
+**Frontend mutation pattern — fire on intent, not on animation:**
+
+Mutations triggered by user intent (click, keypress, etc.) must call `mutation.mutate(...)` synchronously inside the user-event handler. Visual exit animations (`animationend`, `transitionend`, `setTimeout` of an animation duration) are presentational treatment only and must not gate the mutation lifecycle. Coupling a mutation to `animationend` is fragile under `prefers-reduced-motion: reduce` — engines may skip the event on zero-duration animations — and adds a race window in which a user can navigate away or close the page before the mutation is dispatched. Trigger the cache update and the network call from the user-event handler; let the CSS animation play independently and let the row unmount when the keyed list (`<For>`) drops it. [Source: Sprint Change Proposal 2026-05-05; Story 5.1]
+
+**Keyed lists for components with internal state:**
+
+Use Solid's `<For>` (keyed by reference identity) — not `<Index>` — for any list whose children carry per-row state (`createSignal`, `createStore`) or DOM attachments tied to the item identity. `<Index>` keys by position and reuses component instances across position-stable slots, causing stale internal state to leak across distinct items. `<Index>` is acceptable only for stateless rendering of stable-position primitives. [Source: Sprint Change Proposal 2026-05-05; Story 5.1]
+
 **Eden Treaty rules:**
 
 - Chained access only, not route-string style.

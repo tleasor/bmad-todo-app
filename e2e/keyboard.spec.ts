@@ -1054,11 +1054,11 @@ test.describe("journey-3-keyboard-only", () => {
     const outline13 = await gammaRow.evaluate((el) => window.getComputedStyle(el).outlineWidth);
     expect(outline13).toBe("2px");
 
-    // Step 14: j → next navigable row (alpha; beta retains task-row--leaving after undo
-    // due to SolidJS Index reuse, so keyboard navigation skips it)
+    // Step 14: j → next row (beta — restored cleanly without a residual
+    // task-row--leaving class, post Story 5.1 keyed-list fix).
     await page.keyboard.press("j");
-    await expect(alphaRow).toBeFocused();
-    const outline14 = await alphaRow.evaluate((el) => window.getComputedStyle(el).outlineWidth);
+    await expect(betaRow).toBeFocused();
+    const outline14 = await betaRow.evaluate((el) => window.getComputedStyle(el).outlineWidth);
     expect(outline14).toBe("2px");
 
     // Step 15: n (type-anywhere) → TaskInput focused, value "n"

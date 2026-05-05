@@ -1,14 +1,25 @@
-import { createEffect, createSignal, Index, onCleanup, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
+import { createStore, reconcile } from "solid-js/store";
 import { LOADING_DELAY_MS } from "../constants";
 import { LIST_FETCH_ERROR_COPY } from "../data/announcements";
+import type { Task } from "../data/api";
 import { useTasks } from "../data/queries";
 import { EmptyState } from "./EmptyState";
 import { LoadingState } from "./LoadingState";
 import { TaskRow } from "./TaskRow";
+import "./TaskList.css";
 
 export function TaskList(): JSX.Element {
   const query = useTasks();
   const [showLoading, setShowLoading] = createSignal(false);
+  // Mirror TanStack data into a Solid store keyed by task id. Reconcile preserves
+  // object identity for unchanged items so the keyed <For> below does not remount
+  // a row on optimistic field updates (which would drop keyboard focus).
+  const [tasks, setTasks] = createStore<Task[]>([]);
+
+  createEffect(() => {
+    setTasks(reconcile(query.data ?? [], { key: "id" }));
+  });
 
   createEffect(() => {
     if (query.isPending) {
@@ -20,7 +31,7 @@ export function TaskList(): JSX.Element {
   });
 
   return (
-    <div class="task-list-region mt-8">
+    <div class="task-list-region">
       <Show when={!query.isError} fallback={<ListFetchError onRetry={() => query.refetch()} />}>
         <Show
           when={!query.isPending}
@@ -30,9 +41,9 @@ export function TaskList(): JSX.Element {
             </Show>
           }
         >
-          <Show when={(query.data ?? []).length > 0} fallback={<EmptyState />}>
+          <Show when={tasks.length > 0} fallback={<EmptyState />}>
             <ul role="list" class="task-list">
-              <Index each={query.data ?? []}>{(task) => <TaskRow task={task()} />}</Index>
+              <For each={tasks}>{(task) => <TaskRow task={task} />}</For>
             </ul>
           </Show>
         </Show>
@@ -43,13 +54,9 @@ export function TaskList(): JSX.Element {
 
 function ListFetchError(props: { onRetry: () => void }): JSX.Element {
   return (
-    <div class="flex flex-col items-center gap-3 py-8">
-      <p class="text-body text-center text-token-text-secondary">{LIST_FETCH_ERROR_COPY}</p>
-      <button
-        type="button"
-        onClick={() => props.onRetry()}
-        class="text-body-strong text-token-accent-default cursor-pointer bg-transparent border-0 px-3 py-1 rounded-sm focus-visible:outline-2 focus-visible:outline-token-accent-default focus-visible:outline-offset-2"
-      >
+    <div class="task-list-error">
+      <p class="task-list-error__message">{LIST_FETCH_ERROR_COPY}</p>
+      <button type="button" onClick={() => props.onRetry()} class="task-list-error__retry">
         Retry
       </button>
     </div>

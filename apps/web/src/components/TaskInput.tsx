@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show, type JSX } from "solid-js";
 import { CHARACTER_COUNTER_THRESHOLD, MAX_TASK_LENGTH } from "../constants";
+import "./TaskInput.css";
 
 interface TaskInputProps {
   onSubmit: (text: string) => void;
@@ -37,11 +38,11 @@ export function TaskInput(props: TaskInputProps): JSX.Element {
   };
 
   return (
-    <div class="block w-full">
+    <div class="task-input-wrapper">
       <input
         ref={captureInputRef}
         type="text"
-        class="task-input block w-full h-12 py-3 px-4 rounded-sm bg-token-bg-surface text-token-text-primary border border-token-border-default hover:border-token-border-strong focus-visible:border-token-border-strong"
+        class="task-input"
         value={value()}
         onInput={(event) => setValue(event.currentTarget.value)}
         onKeyDown={handleKeyDown}
@@ -61,7 +62,7 @@ export function TaskInput(props: TaskInputProps): JSX.Element {
 
 function CharacterCounter(props: { count: number }): JSX.Element {
   return (
-    <div class="text-caption text-token-text-secondary text-right mt-2" aria-live="polite">
+    <div class="task-input-counter" aria-live="polite">
       {props.count} / {MAX_TASK_LENGTH}
     </div>
   );

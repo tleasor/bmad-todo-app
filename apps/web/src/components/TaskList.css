@@ -1,0 +1,34 @@
+.task-list-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  padding: var(--space-8) 0;
+  text-align: center;
+}
+
+.task-list-error__message {
+  margin: 0;
+  font-size: var(--text-body-size);
+  font-weight: var(--text-body-weight);
+  line-height: var(--text-body-line-height);
+  color: var(--color-text-secondary);
+}
+
+.task-list-error__retry {
+  font-size: var(--text-body-strong-size);
+  font-weight: var(--text-body-strong-weight);
+  line-height: var(--text-body-strong-line-height);
+  color: var(--color-accent-default);
+  background: transparent;
+  border: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.task-list-error__retry:focus-visible {
+  outline: 2px solid var(--color-accent-default);
+  outline-offset: 2px;
+}

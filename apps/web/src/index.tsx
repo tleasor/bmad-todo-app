@@ -7,6 +7,7 @@ import { LiveRegion } from "./components/LiveRegion";
 import { registerGlobalErrorHandlers } from "./errors/reporting";
 import "./styles/reset.css";
 import "./styles/tokens.css";
+import "./styles/layout.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root mount node missing");

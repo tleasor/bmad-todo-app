@@ -94,28 +94,24 @@ describe("TaskRow", () => {
     expect(getByText("buy milk")).toBeDefined();
   });
 
-  it("clicking DeleteButton applies task-row--leaving class before animationend", () => {
+  it("clicking DeleteButton applies the task-row--leaving class synchronously", () => {
     const { getByLabelText, container } = renderRowWithDeleteClient(
       baseTask({ text: "still here" }),
     );
     const li = container.querySelector("li")!;
     fireEvent.click(getByLabelText("Delete task"));
     expect(li.classList.contains("task-row--leaving")).toBe(true);
-    // Row is still in the DOM — mutation hasn't fired yet (awaiting animationend)
-    expect(document.querySelectorAll("li").length).toBe(1);
   });
 
-  it("clicking DeleteButton calls deleteFetch with the task id after animationend", async () => {
+  it("clicking DeleteButton calls deleteFetch with the task id synchronously (no animationend)", async () => {
     const deleteMock = mock(
       (_id: string): Promise<TasksDeleteResponse> =>
         new Promise<TasksDeleteResponse>(() => undefined),
     );
     _tasksApiSeams.deleteFetch = deleteMock;
     const task = baseTask();
-    const { getByLabelText, container } = renderRow(task);
-    const li = container.querySelector("li")!;
+    const { getByLabelText } = renderRow(task);
     fireEvent.click(getByLabelText("Delete task"));
-    fireEvent.animationEnd(li, { animationName: "task-row-leave" });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(deleteMock.mock.calls).toHaveLength(1);
     expect(deleteMock.mock.calls[0]?.[0]).toBe(task.id);
@@ -347,7 +343,7 @@ describe("TaskRow keyboard Space handler", () => {
 });
 
 describe("TaskRow keyboard Delete/Backspace handler", () => {
-  it("Delete on the <li> container applies task-row--leaving and calls deleteFetch after animationend", async () => {
+  it("Delete on the <li> container applies task-row--leaving and calls deleteFetch synchronously", async () => {
     const deleteMock = mock(
       (_id: string): Promise<TasksDeleteResponse> =>
         new Promise<TasksDeleteResponse>(() => undefined),
@@ -357,13 +353,12 @@ describe("TaskRow keyboard Delete/Backspace handler", () => {
     const li = container.querySelector("li")!;
     fireEvent.keyDown(li, { key: "Delete" });
     expect(li.classList.contains("task-row--leaving")).toBe(true);
-    fireEvent.animationEnd(li, { animationName: "task-row-leave" });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(deleteMock.mock.calls).toHaveLength(1);
     expect(deleteMock.mock.calls[0]?.[0]).toBe("0193f000-0000-7000-8000-000000000000");
   });
 
-  it("Backspace on the <li> container applies task-row--leaving and calls deleteFetch after animationend", async () => {
+  it("Backspace on the <li> container applies task-row--leaving and calls deleteFetch synchronously", async () => {
     const deleteMock = mock(
       (_id: string): Promise<TasksDeleteResponse> =>
         new Promise<TasksDeleteResponse>(() => undefined),
@@ -373,7 +368,6 @@ describe("TaskRow keyboard Delete/Backspace handler", () => {
     const li = container.querySelector("li")!;
     fireEvent.keyDown(li, { key: "Backspace" });
     expect(li.classList.contains("task-row--leaving")).toBe(true);
-    fireEvent.animationEnd(li, { animationName: "task-row-leave" });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(deleteMock.mock.calls).toHaveLength(1);
     expect(deleteMock.mock.calls[0]?.[0]).toBe("0193f000-0000-7000-8000-000000000000");
@@ -410,7 +404,7 @@ describe("TaskRow.css contract", () => {
   });
 
   it("uses the status-pending token (not warning amber) for the dashed circle", () => {
-    expect(css).toContain("border: 2px dashed var(--color-status-pending)");
+    expect(css).toContain("border: 1.5px dashed var(--color-status-pending)");
   });
 
   it("uses the status-error-subtle token for the retry-exhausted row background", () => {

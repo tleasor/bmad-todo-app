@@ -1,24 +1,28 @@
 import { For, type JSX } from "solid-js";
+import "./LoadingState.css";
 
-const SKELETON_WIDTHS = ["100%", "75%", "60%"] as const;
+const SKELETON_VARIANTS = ["mid", "default", "short"] as const;
 
-type SkeletonWidth = (typeof SKELETON_WIDTHS)[number];
+type SkeletonVariant = (typeof SKELETON_VARIANTS)[number];
 
 export function LoadingState(): JSX.Element {
   return (
-    <div class="flex flex-col gap-3" aria-busy="true" aria-live="polite">
-      <For each={SKELETON_WIDTHS}>{(width) => <SkeletonRow width={width} />}</For>
+    <div class="loading-list" aria-busy="true" aria-live="polite">
+      <For each={SKELETON_VARIANTS}>{(variant) => <SkeletonRow variant={variant} />}</For>
     </div>
   );
 }
 
-function SkeletonRow(props: { width: SkeletonWidth }): JSX.Element {
+function SkeletonRow(props: { variant: SkeletonVariant }): JSX.Element {
   return (
-    <div class="flex items-center gap-3 py-3 px-4" aria-hidden="true" data-testid="skeleton-row">
-      <div class="skeleton-shimmer w-5 h-5 rounded-full bg-token-bg-subtle shrink-0" />
-      <div
-        class="skeleton-shimmer h-4 rounded-sm bg-token-bg-subtle"
-        style={{ width: props.width }}
+    <div class="skeleton-row" aria-hidden="true" data-testid="skeleton-row">
+      <span class="skeleton-circle" />
+      <span
+        class="skeleton-text"
+        classList={{
+          "skeleton-text--mid": props.variant === "mid",
+          "skeleton-text--short": props.variant === "short",
+        }}
       />
     </div>
   );

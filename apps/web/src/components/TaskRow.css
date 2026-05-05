@@ -1,13 +1,51 @@
-.task-row__primary {
+.task-list {
+  margin: 0;
+  margin-top: var(--space-8);
+  padding: 0;
+  list-style: none;
+}
+
+.task-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--color-border-default);
+  position: relative;
+  transition: background-color var(--motion-short) ease-out;
+}
+
+.task-row:hover {
+  background: var(--color-bg-subtle);
+}
+
+.task-row--focused,
+.task-row:focus-visible {
+  outline: 2px solid var(--color-accent-default);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+  border-bottom-color: transparent;
+}
+
+.task-row__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  flex: 1 1 auto;
+  color: var(--color-text-primary);
+  font-weight: 400;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line-height);
+  transition: color var(--motion-short) ease-out;
 }
 
 .task-row__sync-indicator {
   width: 14px;
   height: 14px;
-  border: 2px dashed var(--color-status-pending);
+  border: 1.5px dashed var(--color-status-pending);
   border-radius: var(--radius-full);
   display: inline-block;
   flex-shrink: 0;
@@ -34,6 +72,7 @@
 }
 
 .task-row__error-message {
+  display: block;
   font-size: var(--text-meta-size);
   line-height: var(--text-meta-line-height);
   font-weight: 400;
@@ -55,16 +94,12 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   padding: 4px 8px;
+  flex-shrink: 0;
 }
 
 .task-row__retry-action:focus-visible {
   outline: 2px solid var(--color-accent-default);
   outline-offset: 2px;
-}
-
-/* Completed text treatment */
-.task-row__text {
-  transition: color var(--motion-short) ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -83,8 +118,17 @@
   text-decoration-thickness: 1px;
 }
 
-/* DeleteButton base styles */
 .task-row__delete {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: var(--space-1);
+  min-block-size: 44px;
+  min-inline-size: 44px;
+  cursor: pointer;
   color: var(--color-text-muted);
   opacity: 0;
   transition:
@@ -99,7 +143,8 @@
 }
 
 /* Show delete button when row is focused via keyboard Tab */
-.task-row:focus .task-row__delete {
+.task-row:focus .task-row__delete,
+.task-row:focus-within .task-row__delete {
   opacity: 1;
 }
 
@@ -142,7 +187,20 @@
   }
 }
 
-/* Checkbox completed state */
+.task-row__checkbox {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
 .task-row__checkbox--completed {
   background: var(--color-accent-default);
   border-color: var(--color-accent-default);
@@ -151,7 +209,6 @@
   justify-content: center;
 }
 
-/* Checkbox hover — only on hover-capable devices */
 @media (hover: hover) {
   .task-row__checkbox:hover {
     border-color: var(--color-accent-default);
@@ -159,7 +216,6 @@
   }
 }
 
-/* Checkbox focus ring */
 .task-row__checkbox:focus-visible {
   outline: 2px solid var(--color-accent-default);
   outline-offset: 2px;

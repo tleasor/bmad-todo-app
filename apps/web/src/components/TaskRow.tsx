@@ -96,6 +96,7 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
       (document.querySelector('[aria-label="New task"]') as HTMLElement | null)?.focus();
     }
     setIsLeaving(true);
+    deleteMutation.mutate(props.task.id);
   };
 
   return (
@@ -103,38 +104,33 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
       tabindex="0"
       data-task-id={props.task.id}
       onKeyDown={handleRowKeyDown}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      on:animationend={(e) => {
-        if (isLeaving() && (e as AnimationEvent).animationName === "task-row-leave")
-          deleteMutation.mutate(props.task.id);
-      }}
-      class="task-row flex flex-col py-3 px-4 min-[900px]:px-2 hover:bg-token-bg-subtle"
+      class="task-row"
       classList={{
         "task-row--retry-exhausted": sync()?.status === "exhausted",
         "task-row--completed": props.task.completed,
         "task-row--leaving": isLeaving(),
       }}
     >
-      <div class="task-row__primary">
-        <Checkbox
-          checked={props.task.completed}
-          disabled={toggleMutation.isPending}
-          onToggle={() =>
-            toggleMutation.mutate({ id: props.task.id, completed: !props.task.completed })
-          }
-        />
-        <span class="task-row__text">{props.task.text}</span>
-        <Show when={sync()?.status === "pending"}>
-          <SyncIndicator />
-        </Show>
+      <Checkbox
+        checked={props.task.completed}
+        disabled={toggleMutation.isPending}
+        onToggle={() =>
+          toggleMutation.mutate({ id: props.task.id, completed: !props.task.completed })
+        }
+      />
+      <span class="task-row__text">
+        {props.task.text}
         <Show when={sync()?.status === "exhausted"}>
-          <RetryAction onRetry={sync()?.retry ?? noop} />
+          <ErrorMessage />
         </Show>
-        <DeleteButton onDelete={handleDelete} />
-      </div>
-      <Show when={sync()?.status === "exhausted"}>
-        <ErrorMessage />
+      </span>
+      <Show when={sync()?.status === "pending"}>
+        <SyncIndicator />
       </Show>
+      <Show when={sync()?.status === "exhausted"}>
+        <RetryAction onRetry={sync()?.retry ?? noop} />
+      </Show>
+      <DeleteButton onDelete={handleDelete} />
     </li>
   );
 }
@@ -171,7 +167,7 @@ function Checkbox(props: CheckboxProps): JSX.Element {
       aria-checked={props.checked}
       aria-label={props.checked ? "Mark task as incomplete" : "Mark task as complete"}
       disabled={props.disabled}
-      class="task-row__checkbox shrink-0 w-5 h-5 rounded-full border-2 border-token-border-strong bg-transparent"
+      class="task-row__checkbox"
       classList={{ "task-row__checkbox--completed": props.checked }}
       onClick={() => props.onToggle()}
     >
@@ -201,7 +197,7 @@ function DeleteButton(props: { onDelete: () => void }): JSX.Element {
     <button
       type="button"
       aria-label="Delete task"
-      class="task-row__delete shrink-0 inline-flex items-center justify-center"
+      class="task-row__delete"
       onClick={props.onDelete}
     >
       <TrashIcon />

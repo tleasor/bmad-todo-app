@@ -337,6 +337,22 @@ Layers the cross-row keyboard navigation that delivers Journey 3 (keyboard-only 
 
 **State after Epic 4:** Full keyboard parity. The app feels like a terminal. All four PRD user journeys validated in CI.
 
+### Epic 5: Hardening & UX Parity (post-MVP, added 2026-05-05)
+
+**User outcome:** *"The app actually does what was promised — I can delete tasks reliably, and what shipped looks like what was designed."*
+
+Added post-Epic-4 via [Sprint Change Proposal 2026-05-05](./sprint-change-proposal-2026-05-05.md) after two latent defects surfaced in real use: (1) task deletion is non-functional via both mouse and keyboard due to mutation behavior coupled to a CSS `animationend` event, and (2) the running app has drifted visually from `ux-design-preview.html` across layout, padding, and focus treatment.
+
+**Scope highlights:**
+
+- Decouple the delete mutation from the CSS animation lifecycle so deletion fires synchronously on user intent regardless of motion preference; fix the latent `<Index>` slot-reuse defect by switching to identity-keyed `<For>`.
+- Reconcile every divergence between the running app and `ux-design-preview.html` — app-shell width logic, vertical padding, empty-state framing, task-row horizontal padding, sync-indicator border, and focused-row treatment — and consolidate the three-styling-languages situation onto a single source of truth.
+- (Optional) Add Playwright visual-regression snapshot tests so future drift is caught at PR time, not by stakeholders weeks later.
+
+**FRs covered:** Re-validates FR10, FR16 (delete via mouse, delete via keyboard); closes the previously unenforced visual-spec parity contract implied by the UX Design Specification.
+
+**State after Epic 5:** The MVP is *actually* shippable — every PRD-promised behavior demonstrably works in real browsers, and the running app matches the design contract. Visual drift, if Story 5.3 is taken, is regression-tested.
+
 ---
 
 ## Epic 1: Foundation & Task Capture
@@ -1106,3 +1122,140 @@ So that I can never lose track of where my keyboard is — and the app's keyboar
 **And** every LiveRegion announcement (Saving… / Saved / Couldn't save / N tasks deleted / undo-available / undo-applied) is **audibly heard** by the tester at the expected moment with the expected politeness setting
 **And** focus order, focus landing after delete (next → previous → input), and the keyboard-shortcut set (Enter / Escape / Space / Delete / Backspace / arrows / `j` / `k` / `i` / Tab / Cmd-Ctrl+Z) all behave as specified when announced via the AT
 **And** the checklist outcome (pass / fail / observations) is recorded in the release notes; a failed check on any AT blocks the release tag.
+
+## Epic 5: Hardening & UX Parity
+
+**Goal:** Close the gap between what was *contracted* (PRD + UX Design Specification + `ux-design-preview.html`) and what was *delivered* by Epics 1–4. Two distinct concerns: a non-functional deletion path that escaped the test suite, and accumulated visual drift from the design preview.
+
+This epic was added 2026-05-05 via Sprint Change Proposal. Epics 1–4 retain `done` status; Epic 5 is remediation, not a re-do.
+
+### Story 5.1: Decouple Delete Mutation from Animation
+
+As a user,
+I want clicking the trash icon or pressing Delete / Backspace on a focused task to actually remove the task from the list — reliably, regardless of my motion-preference setting,
+So that the core deletion contract from FR10 and FR16 is delivered in real browsers, not just in synthetic test environments.
+
+**Acceptance Criteria:**
+
+**Given** any focused task row,
+**When** the user clicks the trash icon,
+**Then** the `useDeleteTask` mutation fires immediately within the click event handler (not via a CSS `animationend` event)
+**And** the row is filtered from the cache via the existing `onMutate` optimistic pipeline within one frame of the click
+**And** `DELETE /api/tasks/<id>` is sent to the backend, expecting 204
+**And** this behavior is independent of the value of `prefers-reduced-motion`.
+
+**Given** any focused task row,
+**When** the user presses `Delete` or `Backspace`,
+**Then** the same mutation pipeline fires immediately with identical guarantees as the click path.
+
+**Given** the user has `prefers-reduced-motion: reduce` enabled at the OS level,
+**When** they delete a task by any input method,
+**Then** the task is removed instantly with no fade-out animation
+**And** the mutation behavior and undo entry creation are unchanged from the standard-motion case.
+
+**Given** a list with multiple tasks,
+**When** the user deletes one task and then immediately deletes the task that takes its position,
+**Then** the second deletion behaves identically to the first
+**And** no row exhibits an "invisible / persisting `task-row--leaving` class" artifact
+**And** the next-occupant row of any deleted slot renders at full opacity with the correct task content.
+
+**Given** the existing `useDeleteTask` mutation in `apps/web/src/data/queries.ts`,
+**When** Story 5.1 is implemented,
+**Then** the mutation pipeline (`onMutate` cache filter, `onSuccess` undo entry creation, `onError` rollback) is unchanged — only the *trigger* changes from `animationend` to a synchronous call inside `handleDelete`
+**And** the undo flow (`useUndoAll`, UndoSnackbar) is unaffected.
+
+**Given** `apps/web/src/components/TaskList.tsx`,
+**When** Story 5.1 is implemented,
+**Then** the `<Index>` list renderer is replaced with `<For>` keyed by `task.id`
+**And** the existing `tabindex="0"`, `data-task-id`, focus-handling, and keyboard-navigation behaviors of `TaskRow` are preserved end-to-end (regression coverage by `e2e/keyboard.spec.ts`).
+
+**Given** the test suite,
+**When** Story 5.1 is implemented,
+**Then** unit tests for `TaskRow` (`apps/web/src/components/TaskRow.test.tsx`) no longer simulate synthetic `animationend` events to drive mutation; they assert that `deleteMutation.mutate(id)` is called synchronously by the click and keyboard handlers
+**And** `e2e/manage.spec.ts` adds at least one deletion test that runs under a Playwright context with `reducedMotion: 'reduce'` and asserts the row is removed and the DELETE request fires.
+
+**Given** the architecture document `architecture/implementation-patterns-consistency-rules.md`,
+**When** Story 5.1 is implemented,
+**Then** the Frontend Mutation Pattern guidance is revised to state that mutations on user intent must fire synchronously within the user-event handler and must not be coupled to CSS animation events.
+
+### Story 5.2: UX Preview Parity Pass
+
+As a designer/PM stakeholder,
+I want the running app's visual treatment to match `ux-design-preview.html` across all states and viewport tiers,
+So that what shipped reflects what we agreed to ship — and the UX Design Specification has been honoured, not just referenced.
+
+**Acceptance Criteria:**
+
+**Given** a side-by-side comparison of the running app against `ux-design-preview.html`,
+**When** rendered in light theme at Compact (380 px), Medium (720 px), and Expanded (1100 px) viewports,
+**Then** every element's positional rhythm — padding, margin, max-width, gap, border-bottom, focus outline, border-radius — matches the preview within visible tolerance
+**And** the same parity holds in dark theme.
+
+**Given** the `app-shell` container,
+**When** rendered at any viewport ≥ 600 px,
+**Then** the content column caps at 640 px (matching preview's `.app-column { max-width: 640px }`)
+**And** the existing 560 px narrowing in the 600–899 px range (`reset.css:166-170`) is removed
+**And** `app-shell` has both `padding-block-start` and `padding-block-end` (40 px standard, 48 px at the Expanded tier — matching preview's `.app` and `.app.expanded`).
+
+**Given** the empty state,
+**When** rendered,
+**Then** it has `padding: 40px 0` and `margin-top: 32px`
+**And** body copy is centered with the same line-height as the preview's `.empty-state`
+**And** color is `var(--color-text-secondary)`.
+
+**Given** any task row,
+**When** rendered at any viewport tier,
+**Then** its horizontal padding is `8px` consistently (matching preview's `.task-row { padding: 12px 8px }`)
+**And** the `min-[900px]:px-2` Tailwind breakpoint conditional in `TaskRow.tsx` is removed — replaced by the unconditional value sourced from a CSS class.
+
+**Given** the sync indicator,
+**When** rendered,
+**Then** its border is `1.5px dashed var(--color-status-pending)` (matching preview).
+
+**Given** any focused row,
+**When** focus arrives via keyboard,
+**Then** the row receives the preview's focused-row treatment — `outline: 2px solid var(--color-accent-default); outline-offset: 2px; border-radius: var(--radius-sm)` — applied via a `task-row--focused` class triggered by `:focus-visible` (or equivalent)
+**And** the underlying `border-bottom` is suppressed or visually subordinated while the row is focused, so the focused-state outline reads as the dominant edge.
+
+**Given** the codebase's task-row styling,
+**When** Story 5.2 is implemented,
+**Then** all task-row visual rules are consolidated into a single source-of-truth file (recommend: `TaskRow.css`)
+**And** task-row-related CSS is removed from `reset.css` (lines 105-148 of the current file)
+**And** layout-affecting UnoCSS utility classes (`flex flex-col py-3 px-4 min-[900px]:px-2`, etc.) are removed from `TaskRow.tsx`'s root JSX class lists; UnoCSS retains only color-token utilities (`bg-token-*`, `text-token-*`) where those read clearly.
+
+**Given** the codebase's app-shell and TaskInput styling,
+**When** Story 5.2 is implemented,
+**Then** the same consolidation principle applies — layout rules in CSS classes, color/state via tokens, no inline UnoCSS utility classes for structural concerns.
+
+**Given** the Playwright keyboard-only spec from Story 4.5,
+**When** Story 5.2 is implemented,
+**Then** the existing focus-ring assertions still pass (the new `task-row--focused` class must not regress AC #3 of Story 4.5).
+
+### Story 5.3 (OPTIONAL): Visual Regression Checkpoint
+
+As an engineer maintaining this codebase,
+I want the build to fail when a code change visibly alters the rendered UI in an unintended way,
+So that visual drift from the design contract is caught before review, not by stakeholders weeks later.
+
+**Acceptance Criteria:**
+
+**Given** Playwright in CI,
+**When** a PR build runs,
+**Then** snapshot tests render the empty / populated / loading / error states in light and dark themes at three viewport tiers (Compact / Medium / Expanded)
+**And** each render is compared against a committed baseline image with a small pixel-tolerance threshold.
+
+**Given** a baseline mismatch beyond the threshold,
+**When** the test runs,
+**Then** the build fails with an inline diff
+**And** the failure output includes the exact command to update the baseline locally
+**And** updating the baseline requires a deliberate PR, not a side-effect of an unrelated change.
+
+**Given** the post-Story-5.2 state,
+**When** the baselines are first committed,
+**Then** they reflect the preview-parity rendering — i.e., the preview-parity state becomes the regression contract going forward.
+
+**Given** an intentional visual change in a future story,
+**When** the developer updates the baselines,
+**Then** the PR description references the story driving the change and the baseline diff is reviewable at PR time.
+
+**Decision deferred:** Story 5.3 is recommended but not strictly required for Epic 5 completion. If the project enters maintenance mode after Story 5.2, a manual visual-checklist against `ux-design-preview.html` at release time may be sufficient. Decide at Story 5.2 close.

@@ -207,6 +207,89 @@ test.describe("manage tasks — delete", () => {
   });
 });
 
+test.describe("manage tasks — delete under prefers-reduced-motion: reduce", () => {
+  test.use({ contextOptions: { reducedMotion: "reduce" } });
+
+  test("clicking DeleteButton removes the row and fires DELETE under reduced motion", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    const text = `reduced-motion-delete-${Date.now()}`;
+    await addTask(page, text);
+
+    const items = page.getByRole("listitem");
+    await expect(items).toHaveCount(1);
+
+    const deletePromise = page.waitForRequest(
+      (req) =>
+        req.method() === "DELETE" && /\/api\/tasks\/[^/]+$/.test(new URL(req.url()).pathname),
+      { timeout: 3000 },
+    );
+
+    await items.nth(0).getByLabel("Delete task").click();
+
+    const deleteRequest = await deletePromise;
+    expect(deleteRequest.method()).toBe("DELETE");
+    expect(new URL(deleteRequest.url()).pathname).toMatch(/^\/api\/tasks\/[^/]+$/);
+
+    await expect(items).toHaveCount(0, { timeout: 3000 });
+  });
+
+  test("Delete key removes the row and fires DELETE under reduced motion", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    const text = `reduced-motion-keyboard-delete-${Date.now()}`;
+    await addTask(page, text);
+
+    const items = page.getByRole("listitem");
+    await expect(items).toHaveCount(1);
+
+    const row = items.nth(0);
+    await row.focus();
+
+    const deletePromise = page.waitForRequest(
+      (req) =>
+        req.method() === "DELETE" && /\/api\/tasks\/[^/]+$/.test(new URL(req.url()).pathname),
+      { timeout: 3000 },
+    );
+
+    await page.keyboard.press("Delete");
+
+    const deleteRequest = await deletePromise;
+    expect(deleteRequest.method()).toBe("DELETE");
+
+    await expect(items).toHaveCount(0, { timeout: 3000 });
+  });
+
+  test("second delete after first works with no persisting --leaving artifact (slot-reuse regression)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "first-task");
+    await addTask(page, "second-task");
+
+    const items = page.getByRole("listitem");
+    await expect(items).toHaveCount(2);
+
+    // newest-first: second-task at index 0
+    await items.nth(0).getByLabel("Delete task").click();
+    await expect(items).toHaveCount(1, { timeout: 3000 });
+
+    // The remaining row (first-task) must be fully visible — not stuck at opacity 0
+    // due to a residual task-row--leaving class from the slot-reuse defect.
+    const remaining = items.nth(0);
+    await expect(remaining).toBeVisible();
+    await expect(remaining).toHaveCSS("opacity", "1");
+    await expect(remaining).not.toHaveClass(/task-row--leaving/);
+
+    // Now delete the next-occupant row — must succeed identically.
+    await remaining.getByLabel("Delete task").click();
+    await expect(items).toHaveCount(0, { timeout: 3000 });
+  });
+});
+
 test.describe("manage tasks — undo snackbar", () => {
   test("delete → snackbar appears → click Undo → task restored at original position", async ({
     page,

@@ -32,8 +32,10 @@ export function App(): JSX.Element {
 
   return (
     <main class="app-shell">
-      <TaskInput onSubmit={handleTaskSubmit} />
-      <TaskList />
+      <div class="app-column">
+        <TaskInput onSubmit={handleTaskSubmit} />
+        <TaskList />
+      </div>
       <UndoSnackbar />
     </main>
   );

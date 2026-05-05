@@ -96,7 +96,7 @@ describe("TaskList", () => {
     await assertNoBlockingAxeViolations(container);
   });
 
-  it("renders one TaskRow per task in the resolved order, with role=list and responsive padding classes", async () => {
+  it("renders one TaskRow per task in the resolved order, with role=list and the task-row CSS class", async () => {
     const client = makeClient();
     const tasks: Task[] = [
       mockTask({
@@ -124,8 +124,10 @@ describe("TaskList", () => {
 
     for (const item of items) {
       const className = item.getAttribute("class") ?? "";
-      expect(className).toContain("px-4");
-      expect(className).toContain("min-[900px]:px-2");
+      expect(className).toContain("task-row");
+      // Layout (padding 12px 8px) is owned by the .task-row CSS class — not
+      // utility classes — per Story 5.2 (single source of truth).
+      expect(className).not.toContain("min-[900px]:px-2");
     }
 
     await assertNoBlockingAxeViolations(container);
