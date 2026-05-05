@@ -1,5 +1,5 @@
 # generated: 2026-04-28
-# last_updated: 2026-04-30 (post code-review 1.3 → done)
+# last_updated: 2026-04-30 (story 1.4 created → ready-for-dev)
 # project: bmad-todo-app
 # project_key: NOKEY
 # tracking_system: file-system
@@ -46,7 +46,7 @@ development_status:
   1-1-initialize-monorepo-scaffold-with-toolchain: done
   1-2-backend-plumbing-logger-error-envelope-request-middleware-health-endpoint: done
   1-3-backend-persistence-tasks-table-forward-only-migrations-repository-skeleton: done
-  1-4-backend-api-get-post-api-tasks-with-idempotency-and-per-ip-rate-limiting: backlog
+  1-4-backend-api-get-post-api-tasks-with-idempotency-and-per-ip-rate-limiting: ready-for-dev
   1-5-frontend-foundation-solid-app-design-tokens-eden-client-errorboundary-liveregion: backlog
   1-6-taskinput-component-with-auto-focus-submit-and-character-counter: backlog
   1-7-task-list-display-tasklist-taskrow-active-state-emptystate-loadingstate: backlog
