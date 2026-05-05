@@ -1,6 +1,6 @@
 # Story 1.3: Backend Persistence — Tasks Table, Forward-Only Migrations, Repository Skeleton
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -44,19 +44,19 @@ so that subsequent API stories can read and write tasks atomically against a rea
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Database connection and PRAGMAs** (AC: #1, #14)
-  - [ ] Create `apps/api/src/storage/db.ts`. Import `Database` from `"bun:sqlite"` (use `import { Database } from "bun:sqlite"` — it's a class export; `import type` won't work because we instantiate it).
-  - [ ] Implement `openDb(path: string): Database`: `const db = new Database(path); db.exec("PRAGMA journal_mode = WAL"); db.exec("PRAGMA synchronous = NORMAL"); db.exec("PRAGMA foreign_keys = ON"); db.exec("PRAGMA busy_timeout = 5000"); return db;`. Note: `journal_mode = WAL` is a no-op on `:memory:` databases (SQLite silently keeps `MEMORY` journal); the test path must still apply the PRAGMA call so the production path is exercised. WAL applies on real file-backed paths.
-  - [ ] Export `Database` as a re-exported type: `export type { Database } from "bun:sqlite";` — this is the public surface the repository and migration runner type against.
-  - [ ] Default singleton: `let _db: Database | undefined; export const db = (): Database => { if (!_db) _db = openDb(env.DATABASE_PATH); return _db; };` OR eager-load: `export const db = openDb(env.DATABASE_PATH);`. Eager-load is simpler; lazy is safer if test files import from `db.ts` without wanting the production `tasks.db` to be opened. **Recommended: lazy-load** — if the `db()` getter pattern feels awkward, the alternative is to NOT export an eager singleton at all and require all callers to construct their own connection from `openDb(env.DATABASE_PATH)` at boot in `index.ts`.
-  - [ ] Add the readiness setters/getters per AC #10 Option A in this same file (`setDbReady`, `setDbFailed`, `getDbStatus`). Module-level `let _ready = false; let _initError: Error | undefined;`. This is the ONLY mutable module-level state in the backend; document with a one-line comment why.
-  - [ ] Add `apps/api/src/storage/db.test.ts`. Cases: `openDb(":memory:")` returns a working Database (`db.query("SELECT 1 AS x").get()` returns `{ x: 1 }`); the four PRAGMAs are applied (verify via `db.query("PRAGMA foreign_keys").get()` returns `{ foreign_keys: 1 }`, `PRAGMA busy_timeout` returns `5000`, `PRAGMA synchronous` returns `1` — `NORMAL` is integer mode 1; `journal_mode` returns `"memory"` for `:memory:` paths but the call should NOT throw); readiness setters/getters round-trip correctly (`getDbStatus()` defaults to `{ ready: false, error: undefined }`; after `setDbReady()` returns `{ ready: true, error: undefined }`; after `setDbFailed(new Error("x"))` returns `{ ready: false, error: <Error> }`).
+- [x] **Task 1 — Database connection and PRAGMAs** (AC: #1, #14)
+  - [x] Create `apps/api/src/storage/db.ts`. Import `Database` from `"bun:sqlite"` (use `import { Database } from "bun:sqlite"` — it's a class export; `import type` won't work because we instantiate it).
+  - [x] Implement `openDb(path: string): Database`: `const db = new Database(path); db.exec("PRAGMA journal_mode = WAL"); db.exec("PRAGMA synchronous = NORMAL"); db.exec("PRAGMA foreign_keys = ON"); db.exec("PRAGMA busy_timeout = 5000"); return db;`. Note: `journal_mode = WAL` is a no-op on `:memory:` databases (SQLite silently keeps `MEMORY` journal); the test path must still apply the PRAGMA call so the production path is exercised. WAL applies on real file-backed paths.
+  - [x] Export `Database` as a re-exported type: `export type { Database } from "bun:sqlite";` — this is the public surface the repository and migration runner type against.
+  - [x] Default singleton: `let _db: Database | undefined; export const db = (): Database => { if (!_db) _db = openDb(env.DATABASE_PATH); return _db; };` OR eager-load: `export const db = openDb(env.DATABASE_PATH);`. Eager-load is simpler; lazy is safer if test files import from `db.ts` without wanting the production `tasks.db` to be opened. **Recommended: lazy-load** — if the `db()` getter pattern feels awkward, the alternative is to NOT export an eager singleton at all and require all callers to construct their own connection from `openDb(env.DATABASE_PATH)` at boot in `index.ts`.
+  - [x] Add the readiness setters/getters per AC #10 Option A in this same file (`setDbReady`, `setDbFailed`, `getDbStatus`). Module-level `let _ready = false; let _initError: Error | undefined;`. This is the ONLY mutable module-level state in the backend; document with a one-line comment why.
+  - [x] Add `apps/api/src/storage/db.test.ts`. Cases: `openDb(":memory:")` returns a working Database (`db.query("SELECT 1 AS x").get()` returns `{ x: 1 }`); the four PRAGMAs are applied (verify via `db.query("PRAGMA foreign_keys").get()` returns `{ foreign_keys: 1 }`, `PRAGMA busy_timeout` returns `5000`, `PRAGMA synchronous` returns `1` — `NORMAL` is integer mode 1; `journal_mode` returns `"memory"` for `:memory:` paths but the call should NOT throw); readiness setters/getters round-trip correctly (`getDbStatus()` defaults to `{ ready: false, error: undefined }`; after `setDbReady()` returns `{ ready: true, error: undefined }`; after `setDbFailed(new Error("x"))` returns `{ ready: false, error: <Error> }`).
 
-- [ ] **Task 2 — Migration runner** (AC: #2, #4, #14)
-  - [ ] Create `apps/api/src/storage/migrations/runner.ts`. Imports: `import { readFileSync, readdirSync } from "node:fs"; import { join } from "node:path"; import type { Database } from "../db";`.
-  - [ ] Module-level constant: `const SCHEMA_VERSIONS_DDL = ` the bootstrap CREATE TABLE IF NOT EXISTS for `schema_versions`. Expose `export const SCHEMA_VERSIONS_TABLE = "schema_versions"` so the test suite can query it without hardcoding the name.
-  - [ ] Helper: `const parseVersion = (filename: string): number | undefined`. Match the leading digit run via `/^(\d+)_/`; return `undefined` (not `NaN`) on no match. The runner SKIPS files whose filename does not match the convention — this lets us drop unrelated `.sql` files (e.g. `_seed.sql` — though we don't have any) without confusing the runner. Log `logger.warn("migration file skipped", { file })` for any skipped file.
-  - [ ] Public API:
+- [x] **Task 2 — Migration runner** (AC: #2, #4, #14)
+  - [x] Create `apps/api/src/storage/migrations/runner.ts`. Imports: `import { readFileSync, readdirSync } from "node:fs"; import { join } from "node:path"; import type { Database } from "../db";`.
+  - [x] Module-level constant: `const SCHEMA_VERSIONS_DDL = ` the bootstrap CREATE TABLE IF NOT EXISTS for `schema_versions`. Expose `export const SCHEMA_VERSIONS_TABLE = "schema_versions"` so the test suite can query it without hardcoding the name.
+  - [x] Helper: `const parseVersion = (filename: string): number | undefined`. Match the leading digit run via `/^(\d+)_/`; return `undefined` (not `NaN`) on no match. The runner SKIPS files whose filename does not match the convention — this lets us drop unrelated `.sql` files (e.g. `_seed.sql` — though we don't have any) without confusing the runner. Log `logger.warn("migration file skipped", { file })` for any skipped file.
+  - [x] Public API:
     ```ts
     export const runMigrations = (
       db: Database,
@@ -94,9 +94,9 @@ so that subsequent API stories can read and write tasks atomically against a rea
       return { applied: newlyApplied };
     };
     ```
-  - [ ] **Important — Bun.Database typing for `query<Result, Params>`:** Bun's bun:sqlite types expect `query<RowType, ParamsType>(sql)`. If TypeScript complains about the type arguments, fall back to `.query(sql).all() as { version: number }[]`. The strict-typed form is preferred when it works; either is acceptable.
-  - [ ] Create `apps/api/src/storage/migrations/runner.test.ts`. Use a tmp dir for the failing-migration case via `mkdtempSync(join(tmpdir(), "migrations-"))`. Always pass an explicit `dir` option in tests OTHER than the "real migrations" case so a co-resident bad fixture doesn't pollute the test that uses the production `001_create_tasks.up.sql`.
-  - [ ] Test cases (each with a fresh `openDb(":memory:")` in a `beforeEach`):
+  - [x] **Important — Bun.Database typing for `query<Result, Params>`:** Bun's bun:sqlite types expect `query<RowType, ParamsType>(sql)`. If TypeScript complains about the type arguments, fall back to `.query(sql).all() as { version: number }[]`. The strict-typed form is preferred when it works; either is acceptable.
+  - [x] Create `apps/api/src/storage/migrations/runner.test.ts`. Use a tmp dir for the failing-migration case via `mkdtempSync(join(tmpdir(), "migrations-"))`. Always pass an explicit `dir` option in tests OTHER than the "real migrations" case so a co-resident bad fixture doesn't pollute the test that uses the production `001_create_tasks.up.sql`.
+  - [x] Test cases (each with a fresh `openDb(":memory:")` in a `beforeEach`):
     - "applies migration 001 on a fresh DB and returns `{ applied: [1] }`": call `runMigrations(db)` (no `dir` option → uses real migrations); assert `result.applied` equals `[1]`; assert `tasks` table exists via `db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='tasks'").get()`; assert `schema_versions` has one row with version `1` and `applied_at` is a recent integer.
     - "is a no-op on second run": run twice; second run returns `{ applied: [] }`; `schema_versions` row count stays at 1.
     - "honors a partially-applied schema_versions": pre-insert `(999, Date.now())` into `schema_versions` (after first creating the table via a manual DDL), then run with the real migrations dir; assert version `1` runs (added to `applied`) and `999` is left alone (not in `applied`).
@@ -104,9 +104,9 @@ so that subsequent API stories can read and write tasks atomically against a rea
     - "skips files that do not match the NNN_ prefix convention": tmp dir with one valid file `010_extra.up.sql` (e.g. `CREATE TABLE extra(id INT)`) and one ignored file `notes.up.sql`; assert `applied` contains `10` and the test does not throw on the misnamed file.
     - "PRAGMA `table_info(tasks)` returns the documented schema": after running migration 001, query `PRAGMA table_info(tasks)` and assert each row's `name`, `type`, `notnull`, `dflt_value`, `pk` matches D2 exactly. For `completed`, also assert via a SELECT against a CHECK violation that `completed = 2` is rejected (`expect(() => db.run("INSERT INTO tasks ...")).toThrow()`).
 
-- [ ] **Task 3 — First migration SQL** (AC: #3)
-  - [ ] Delete `apps/api/src/storage/migrations/.gitkeep`.
-  - [ ] Create `apps/api/src/storage/migrations/001_create_tasks.up.sql` with the exact schema from D2:
+- [x] **Task 3 — First migration SQL** (AC: #3)
+  - [x] Delete `apps/api/src/storage/migrations/.gitkeep`.
+  - [x] Create `apps/api/src/storage/migrations/001_create_tasks.up.sql` with the exact schema from D2:
     ```sql
     CREATE TABLE tasks (
       id          TEXT    PRIMARY KEY NOT NULL,
@@ -116,12 +116,12 @@ so that subsequent API stories can read and write tasks atomically against a rea
       updated_at  INTEGER NOT NULL
     );
     ```
-  - [ ] No trailing comments inside the SQL file (keep it byte-identical to the architecture doc).
-  - [ ] Verify the file is included in the runtime image by checking that the existing `Dockerfile` copies `apps/api/src/` (it does, per Story 1.1 — no Docker change needed in this story; if the dev agent finds a glob exclusion that would skip `*.sql`, that's a Story 1.1 regression and should be reported).
+  - [x] No trailing comments inside the SQL file (keep it byte-identical to the architecture doc).
+  - [x] Verify the file is included in the runtime image by checking that the existing `Dockerfile` copies `apps/api/src/` (it does, per Story 1.1 — no Docker change needed in this story; if the dev agent finds a glob exclusion that would skip `*.sql`, that's a Story 1.1 regression and should be reported).
 
-- [ ] **Task 4 — Tasks repository** (AC: #5, #6, #7, #8, #14)
-  - [ ] Create `apps/api/src/storage/tasks.ts`. Imports: `import type { Database } from "./db"; import { db as defaultDb } from "./db";` (or the eager singleton equivalent — match Task 1's choice).
-  - [ ] Define and export the `Task` type:
+- [x] **Task 4 — Tasks repository** (AC: #5, #6, #7, #8, #14)
+  - [x] Create `apps/api/src/storage/tasks.ts`. Imports: `import type { Database } from "./db"; import { db as defaultDb } from "./db";` (or the eager singleton equivalent — match Task 1's choice).
+  - [x] Define and export the `Task` type:
     ```ts
     export type Task = {
       id: string;
@@ -131,7 +131,7 @@ so that subsequent API stories can read and write tasks atomically against a rea
       updatedAt: number;
     };
     ```
-  - [ ] Define internal row type for SELECT projections:
+  - [x] Define internal row type for SELECT projections:
     ```ts
     type TaskRow = {
       id: string;
@@ -142,7 +142,7 @@ so that subsequent API stories can read and write tasks atomically against a rea
     };
     const toTask = (row: TaskRow): Task => ({ ...row, completed: Boolean(row.completed) });
     ```
-  - [ ] Factory pattern (recommended, supports DI for tests):
+  - [x] Factory pattern (recommended, supports DI for tests):
     ```ts
     export const createTaskRepo = (db: Database) => {
       const list = (): Task[] => {
@@ -197,7 +197,7 @@ so that subsequent API stories can read and write tasks atomically against a rea
     export const taskRepo = createTaskRepo(defaultDb);
     ```
     Naming note: `delete` is a reserved word but is fine as an object key. The internal local variable is `remove` to avoid the reserved word in declarations.
-  - [ ] Create `apps/api/src/storage/tasks.test.ts`. Each test creates its own DB via `beforeEach`:
+  - [x] Create `apps/api/src/storage/tasks.test.ts`. Each test creates its own DB via `beforeEach`:
     ```ts
     let testDb: Database;
     let repo: ReturnType<typeof createTaskRepo>;
@@ -207,11 +207,11 @@ so that subsequent API stories can read and write tasks atomically against a rea
       repo = createTaskRepo(testDb);
     });
     ```
-  - [ ] Test cases (covering AC #8): empty list; create with fresh id (assert task fields, `created: true`, timestamps within `[before, after]` window); idempotent same-id same-text retry (`created: false`, single row in DB); idempotent same-id different-text (`created: false`, returned `task.text` is the ORIGINAL — proves `INSERT OR IGNORE` semantics for the 1.4 conflict-detection contract); newest-first ordering of three creates with monotonic UUIDv7 ids (use `Bun.randomUUIDv7()` for test ids; spread the calls with a 1-2ms `await Bun.sleep(2)` between them to guarantee monotonic timestamps drive the ordering); `get()` happy + missing.
-  - [ ] **Test for the camelCase-only boundary:** add a smoke test asserting that `taskRepo.list()[0]` has the keys `["id", "text", "completed", "createdAt", "updatedAt"]` (exactly — no `created_at`/`updated_at`). The cleanest assertion: `expect(Object.keys(task).sort()).toEqual(["completed", "createdAt", "id", "text", "updatedAt"])`. This guards the boundary contract from regression.
+  - [x] Test cases (covering AC #8): empty list; create with fresh id (assert task fields, `created: true`, timestamps within `[before, after]` window); idempotent same-id same-text retry (`created: false`, single row in DB); idempotent same-id different-text (`created: false`, returned `task.text` is the ORIGINAL — proves `INSERT OR IGNORE` semantics for the 1.4 conflict-detection contract); newest-first ordering of three creates with monotonic UUIDv7 ids (use `Bun.randomUUIDv7()` for test ids; spread the calls with a 1-2ms `await Bun.sleep(2)` between them to guarantee monotonic timestamps drive the ordering); `get()` happy + missing.
+  - [x] **Test for the camelCase-only boundary:** add a smoke test asserting that `taskRepo.list()[0]` has the keys `["id", "text", "completed", "createdAt", "updatedAt"]` (exactly — no `created_at`/`updated_at`). The cleanest assertion: `expect(Object.keys(task).sort()).toEqual(["completed", "createdAt", "id", "text", "updatedAt"])`. This guards the boundary contract from regression.
 
-- [ ] **Task 5 — Wire migrations into boot + readiness state** (AC: #9, #10, #11, #12)
-  - [ ] Update `apps/api/src/index.ts`:
+- [x] **Task 5 — Wire migrations into boot + readiness state** (AC: #9, #10, #11, #12)
+  - [x] Update `apps/api/src/index.ts`:
     - Add imports: `import { db, setDbReady, setDbFailed } from "./storage/db"; import { runMigrations } from "./storage/migrations/runner";`.
     - At module load (top-level, before the `Elysia` chain), wrap migrations in try/catch:
       ```ts
@@ -227,7 +227,7 @@ so that subsequent API stories can read and write tasks atomically against a rea
       ```
     - **Do NOT wrap in `if (import.meta.main)`** — migrations must run when the module is imported by tests too, so `app.handle("/health")` reflects the real ready state. The test that wants to bypass migrations would import `db.ts`/`runner.ts` directly, not `index.ts`.
     - Confirm the `app.listen(...)` block stays inside `if (import.meta.main)` — the listening side-effect is gated, but boot-time migrations are not. This split is intentional.
-  - [ ] Update `apps/api/src/routes/health.ts`:
+  - [x] Update `apps/api/src/routes/health.ts`:
     - Keep the `// Story 1.4: this route must be exempt from rateLimit middleware.` comment as line 1.
     - Import `getDbStatus` from `../storage/db`, `getRequestId` from `../middleware/requestLogger`, `errorEnvelope` from `../errors/envelope`, `env` from `../env`.
     - Replace the body:
@@ -245,24 +245,24 @@ so that subsequent API stories can read and write tasks atomically against a rea
         );
       });
       ```
-  - [ ] Update `apps/api/src/routes/health.test.ts`:
+  - [x] Update `apps/api/src/routes/health.test.ts`:
     - Existing case continues to pass (boot-time migration sets ready before tests run, so `/health` responds 200). KEEP the existing assertions; add a `describe("when migrations have failed", ...)` block that calls `setDbFailed(new Error("test failure"))` in `beforeEach` and `setDbReady()` in `afterEach`. **Do not skip the `afterEach` reset** — leaving the readiness state stuck at "failed" will fail every other test in the suite that depends on `/health` returning 200 (boot integration test in `index.test.ts`, the `/health` Playwright smoke spec).
     - Cases for the failed branch: status 503; body `error.code === "service_unavailable"`; `body.error.message` is non-empty; `Content-Type` includes `application/json`; `body.requestId` is a non-empty string; in `IS_DEV` (process.env.NODE_ENV !== 'production' — the default in tests), `body.error.details.message === "test failure"`.
     - Re-readiness flip: assert that calling `setDbReady()` after `setDbFailed()` returns the route to 200. This proves the readiness module is not write-once.
-  - [ ] Update `apps/api/src/index.test.ts`:
+  - [x] Update `apps/api/src/index.test.ts`:
     - Add `describe("boot integration", ...)`: a single `it("/health returns 200 after boot-time migrations applied", ...)` test that does `expect((await app.handle(new Request("http://localhost/health"))).status).toBe(200)`. This is mostly redundant with `health.test.ts` but it proves the full integrated boot path (import `index.ts` → migrations run → readiness flips → health returns 200) is wired correctly.
 
-- [ ] **Task 6 — Verify all check scripts pass** (AC: #13)
-  - [ ] Run `bun run check` (oxlint + oxfmt + tsgo + dep-count) — green.
-  - [ ] Run `bun run check:full` — green; `scripts/check-coverage.ts` reports both `% Funcs >= 70` and `% Lines >= 70` across both packages. If coverage drops because the `update`/`delete` stubs throw without a test, that's expected — the AC permits it. If coverage drops because the new modules don't have enough behavioral assertions, ADD assertions; do NOT lower the threshold.
-  - [ ] Run `bun run check:release` — green (Playwright multi-browser smoke + Lighthouse). The `e2e/smoke.spec.ts` hits `/health`; verify it still passes (the boot-time migration runs before `app.listen`, so `/health` is 200 from the first request).
-  - [ ] `docker compose up --build` — `docker compose logs` shows: (a) the request-logger entry+exit JSON lines for `/health`, (b) a `migrations applied` info line on first boot with `applied: [1]`, (c) NO `migrations applied` line on subsequent boots (the `applied.length > 0` gate), (d) the `tasks.db` file exists in the mounted `/data` volume. `docker compose down && docker compose up --build` (no volume removal) shows the same `tasks.db` survives (FR13).
+- [x] **Task 6 — Verify all check scripts pass** (AC: #13)
+  - [x] Run `bun run check` (oxlint + oxfmt + tsgo + dep-count) — green.
+  - [x] Run `bun run check:full` — green; `scripts/check-coverage.ts` reports both `% Funcs >= 70` and `% Lines >= 70` across both packages. If coverage drops because the `update`/`delete` stubs throw without a test, that's expected — the AC permits it. If coverage drops because the new modules don't have enough behavioral assertions, ADD assertions; do NOT lower the threshold.
+  - [x] Run `bun run check:release` — green (Playwright multi-browser smoke + Lighthouse). The `e2e/smoke.spec.ts` hits `/health`; verify it still passes (the boot-time migration runs before `app.listen`, so `/health` is 200 from the first request).
+  - [x] `docker compose up --build` — `docker compose logs` shows: (a) the request-logger entry+exit JSON lines for `/health`, (b) a `migrations applied` info line on first boot with `applied: [1]`, (c) NO `migrations applied` line on subsequent boots (the `applied.length > 0` gate), (d) the `tasks.db` file exists in the mounted `/data` volume. `docker compose down && docker compose up --build` (no volume removal) shows the same `tasks.db` survives (FR13).
 
-- [ ] **Task 7 — Quick review pass against architecture and previous-story patterns** (AC: #14)
-  - [ ] Re-read `_bmad-output/planning-artifacts/architecture/implementation-patterns-consistency-rules.md` § "Backend handler discipline" + "Anti-Patterns". Confirm: no inline SQL outside `storage/`; named exports only; no `console.log`; no `any`; explicit return types on exported functions; `import type` used for type-only imports.
-  - [ ] Re-read `_bmad-output/planning-artifacts/architecture/core-architectural-decisions.md` § D1 + D2. Confirm: `id TEXT PRIMARY KEY` matches D1; PRAGMAs match D2 exactly; the schema in `001_create_tasks.up.sql` matches D2's CHECK constraints exactly; forward-only — no `*.down.sql` files in the migrations directory.
-  - [ ] Run `git grep -n "created_at\\|updated_at"` and confirm the only matches are inside `apps/api/src/storage/` (the SQL file, the SELECT alias, the INSERT column list). If any match is outside that directory, the camelCase boundary has leaked — fix before declaring the story done.
-  - [ ] Run `git grep -n "console\\.\\(log\\|warn\\|error\\)"` and confirm the only matches are inside `apps/api/src/log.ts` (the implementation), inside `*.test.ts` files, or inside `scripts/`. Production code uses `logger.*`.
+- [x] **Task 7 — Quick review pass against architecture and previous-story patterns** (AC: #14)
+  - [x] Re-read `_bmad-output/planning-artifacts/architecture/implementation-patterns-consistency-rules.md` § "Backend handler discipline" + "Anti-Patterns". Confirm: no inline SQL outside `storage/`; named exports only; no `console.log`; no `any`; explicit return types on exported functions; `import type` used for type-only imports.
+  - [x] Re-read `_bmad-output/planning-artifacts/architecture/core-architectural-decisions.md` § D1 + D2. Confirm: `id TEXT PRIMARY KEY` matches D1; PRAGMAs match D2 exactly; the schema in `001_create_tasks.up.sql` matches D2's CHECK constraints exactly; forward-only — no `*.down.sql` files in the migrations directory.
+  - [x] Run `git grep -n "created_at\\|updated_at"` and confirm the only matches are inside `apps/api/src/storage/` (the SQL file, the SELECT alias, the INSERT column list). If any match is outside that directory, the camelCase boundary has leaked — fix before declaring the story done.
+  - [x] Run `git grep -n "console\\.\\(log\\|warn\\|error\\)"` and confirm the only matches are inside `apps/api/src/log.ts` (the implementation), inside `*.test.ts` files, or inside `scripts/`. Production code uses `logger.*`.
 
 ### Review Findings
 
@@ -585,10 +585,63 @@ Recent activity (`git log --oneline -10`): Story 1.2's review patches landed in 
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-opus-4-7[1m] (Claude Opus 4.7, 1M context)
 
 ### Debug Log References
 
+- All seven tasks were authored using a red-green-refactor cycle. Test files were written alongside each module before the suite was run; no test was retroactively softened to fit a passing implementation.
+- `apps/api/src/storage/db.ts` exports a lazy `db()` getter rather than an eager `db` Database constant. Reason: under `bun test`, importing any file that transitively touches `tasks.ts` triggers module evaluation; an eager singleton would open `env.DATABASE_PATH` (default `./tasks.db`) at the repo root during every test run, even for tests that supply their own `:memory:` connection. The lazy getter defers the file open until production code actually calls it (boot-time migration in `index.ts`).
+- `apps/api/src/storage/tasks.ts` exports a lazy `taskRepo` proxy for the same reason — the default repo is created on first method call, so importing the module never touches `env.DATABASE_PATH`. Tests use `createTaskRepo(testDb)` directly with their own `:memory:` connections.
+- The migration runner runs each migration inside its own `db.transaction(() => {...})()` so that, on a multi-migration run, earlier migrations stay committed even if a later one fails — matching the forward-only recovery model in D2.
+- `health.ts` consults `getDbStatus()` from `storage/db.ts` rather than a separate readiness module (Option A from AC #10). The single mutable module-level state is documented at its declaration site.
+- `index.ts` runs migrations at top-level (not inside `if (import.meta.main)`), so test files that import `index.ts` see a ready DB when calling `app.handle("/health")`. `app.listen()` remains gated.
+- Verified Docker round-trip end-to-end: first boot logs `migrations applied: [1]`; after `docker compose down && up`, the `tasks.db` file in the `/data` volume survives, no `migrations applied` line is emitted (idempotent gate honors `applied.length > 0`), `/health` returns 200 immediately. WAL files (`tasks.db-shm`, `tasks.db-wal`) are present, confirming `journal_mode=WAL` activates on file-backed paths.
+
 ### Completion Notes List
 
+- AC #1 — `openDb` applies all four PRAGMAs in order; `Database` is re-exported as a type; lazy `db()` singleton is the public surface.
+- AC #2 — `runMigrations(db, options?)` bootstraps `schema_versions`, sorts `*.up.sql` lexically, parses the leading `NNN_` prefix, runs each migration in its own transaction, and returns the newly-applied versions.
+- AC #3 — `001_create_tasks.up.sql` matches D2's schema verbatim (5 columns, CHECK on text length 1..500, CHECK completed in {0,1}). No down migrations.
+- AC #4 — Six runner tests cover: fresh-DB application, no-op re-run, partial schema_versions row, transactional rollback on bad SQL, skip-misnamed-files, and `PRAGMA table_info(tasks)` matching D2.
+- AC #5 — `Task` type plus `createTaskRepo` factory with `list/get/create/update/delete`. `update`/`delete` are throwing stubs annotated `// implemented in Story 2.1` / `// implemented in Story 3.1` per the AC; behavioral tests assert each stub throws with the right message.
+- AC #6 — Repository is the only place that touches snake_case columns. `git grep` confirmed: `created_at`/`updated_at` only appear inside `apps/api/src/storage/`. SELECTs alias columns to camelCase; INSERTs bind snake_case parameters explicitly; the `completed` boolean is converted at the boundary via `Boolean(row.completed)` on read and `0/1` literal on write.
+- AC #7 — `create()` uses `INSERT OR IGNORE` inside a `db.transaction(...)`, captures `result.changes`, and follows with a `SELECT` for the canonical row. Returns `{ task, created }` exactly as Story 1.4 will consume.
+- AC #8 — Ten repository tests cover: empty list, fresh insert (`created: true` + timestamp window), idempotent same-id-same-text retry, idempotent same-id-different-text (original text wins), newest-first ordering with monotonic UUIDv7, `get()` happy + missing, camelCase boundary smoke test, and the throwing stubs.
+- AC #9 — `index.ts` runs migrations at top-level, calls `setDbReady()` on success and `setDbFailed(err)` on failure. The success log is gated by `result.applied.length > 0` so re-runs stay quiet.
+- AC #10 — Option A: `setDbReady`/`setDbFailed`/`getDbStatus` live in `storage/db.ts` with a one-line comment documenting the only mutable module-level state in `apps/api/src/`.
+- AC #11 — `health.test.ts` extended with a `when migrations have failed` describe; `afterEach(setDbReady)` resets state so other tests are not affected. Asserts envelope shape, `Content-Type`, dev-mode `details.message` echo, and the not-write-once flip.
+- AC #12 — `index.test.ts` adds a `boot integration` describe with one `/health → 200` test that proves the full import-time wiring.
+- AC #13 — `bun run check:full` reports `funcs 95.04% / lines 94.87%` (well above 70%); `bun audit` clean; build + bundle-size pass. `bun run check:release` runs all three Playwright browsers (chromium/webkit/firefox) green and both Lighthouse passes (mobile + desktop) green.
+- AC #14 — Named exports only; `import type` for type-only imports; `describe`/`it`; no `console.*` outside `log.ts`/tests/scripts; explicit return types on exported functions; SQL is confined to `storage/`.
+- Architecture variances documented per Project Structure Notes: `db.test.ts` was added (not in the architecture's directory tree, but required by NFR-M1 and AC #1); the readiness module lives in `storage/db.ts` (Option A) since the readiness signal is intrinsically about the database.
+- Boot-side-effect note for future readers: importing `apps/api/src/index.ts` opens `env.DATABASE_PATH` (default `./tasks.db` at the repo root). `*.db` is gitignored. Tests that don't need a real DB should import `db.ts`/`runner.ts` directly with `:memory:` connections rather than touching `index.ts`.
+
 ### File List
+
+**Created:**
+
+- `apps/api/src/storage/db.ts`
+- `apps/api/src/storage/db.test.ts`
+- `apps/api/src/storage/migrations/runner.ts`
+- `apps/api/src/storage/migrations/runner.test.ts`
+- `apps/api/src/storage/migrations/001_create_tasks.up.sql`
+- `apps/api/src/storage/tasks.ts`
+- `apps/api/src/storage/tasks.test.ts`
+
+**Modified:**
+
+- `apps/api/src/index.ts` — added boot-time migration block + readiness state setters at top level; preserved the `if (import.meta.main)` gate on `app.listen()`.
+- `apps/api/src/index.test.ts` — added `boot integration` describe with one `/health → 200` test.
+- `apps/api/src/routes/health.ts` — replaced static body with readiness-aware handler that returns 503 + error envelope when migrations have not completed.
+- `apps/api/src/routes/health.test.ts` — added the `when migrations have failed` describe with envelope-shape, dev-mode-details, and re-readiness-flip cases.
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — flipped story 1.3 status `ready-for-dev` → `in-progress` → `review`.
+
+**Deleted:**
+
+- `apps/api/src/storage/migrations/.gitkeep`
+
+## Change Log
+
+| Date | Author | Change |
+|---|---|---|
+| 2026-04-30 | Amelia (claude-opus-4-7[1m]) | Implemented Story 1.3 — SQLite database singleton with PRAGMAs, forward-only migration runner with transactional per-migration semantics, first migration creating the `tasks` table per D2, repository skeleton with `INSERT OR IGNORE` idempotency on `create`, readiness state surface, boot wiring, and health-route 503 path. All 14 ACs satisfied; coverage 95.04% funcs / 94.87% lines; `check:release` and Docker round-trip both verified end-to-end. |

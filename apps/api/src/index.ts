@@ -6,6 +6,23 @@ import { logger } from "./log";
 import { requestLogger } from "./middleware/requestLogger";
 import { registerOnError } from "./onError";
 import { healthRoute } from "./routes/health";
+import { db, setDbFailed, setDbReady } from "./storage/db";
+import { runMigrations } from "./storage/migrations/runner";
+
+// Boot-time migration: runs on every module import (including tests) so
+// /health reflects the real readiness state. The listening side-effect
+// remains gated by import.meta.main below.
+try {
+  const result = runMigrations(db());
+  setDbReady();
+  if (result.applied.length > 0) {
+    logger.info("migrations applied", { applied: result.applied });
+  }
+} catch (err) {
+  const error = err instanceof Error ? err : new Error(String(err));
+  setDbFailed(error);
+  logger.error("migrations failed", { stack: error.stack, message: error.message });
+}
 
 const SPA_DIST = resolve(import.meta.dir, "..", "..", "web", "dist");
 
