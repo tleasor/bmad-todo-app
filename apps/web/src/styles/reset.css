@@ -68,6 +68,20 @@ select {
   line-height: var(--text-heading-line-height);
 }
 
+.text-caption {
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-caption-weight);
+  line-height: var(--text-caption-line-height);
+}
+
+.task-input {
+  caret-color: var(--color-accent-default);
+}
+
+.task-input::placeholder {
+  color: var(--color-text-secondary);
+}
+
 @media (min-width: 600px) {
   .app-shell {
     width: min(100% - calc(var(--space-6) * 2), 560px);

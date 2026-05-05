@@ -1,5 +1,5 @@
 # generated: 2026-04-28
-# last_updated: 2026-04-30 (story 1.5 review complete)
+# last_updated: 2026-04-30 (story 1.6 done)
 # project: bmad-todo-app
 # project_key: NOKEY
 # tracking_system: file-system
@@ -48,7 +48,7 @@ development_status:
   1-3-backend-persistence-tasks-table-forward-only-migrations-repository-skeleton: done
   1-4-backend-api-get-post-api-tasks-with-idempotency-and-per-ip-rate-limiting: done
   1-5-frontend-foundation-solid-app-design-tokens-eden-client-errorboundary-liveregion: done
-  1-6-taskinput-component-with-auto-focus-submit-and-character-counter: backlog
+  1-6-taskinput-component-with-auto-focus-submit-and-character-counter: done
   1-7-task-list-display-tasklist-taskrow-active-state-emptystate-loadingstate: backlog
   1-8-optimistic-task-creation-happy-path: backlog
   1-9-sync-pending-indicator-and-retry-exhausted-state-for-capture: backlog

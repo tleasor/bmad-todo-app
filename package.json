@@ -4,6 +4,7 @@
   "workspaces": ["apps/*"],
   "scripts": {
     "dev": "bun scripts/dev.ts",
+    "test": "bun test apps --conditions=browser",
     "build": "bun run --cwd apps/web build",
     "check": "bun run check:lint && bun run check:format && bun run check:types && bash scripts/check-dep-count.sh",
     "check:lint": "oxlint apps/ scripts/ e2e/ --ignore-pattern '**/dist/**'",

@@ -26,6 +26,11 @@ Then open <http://localhost:5173>. The frontend (Vite, port 5173) proxies `/api/
 | `bun run check` | Lint (oxlint) + format check (oxfmt) + typecheck (tsgo) + dep-count cap | ~5 s |
 | `bun run check:full` | `check` + unit tests with 70 % coverage threshold + `bun audit` + bundle size cap | ~30 s |
 | `bun run check:release` | `check:full` + Playwright across chromium/firefox/webkit + Lighthouse | ~6–8 min |
+| `bun run test` | Runs `apps/**` tests with `--conditions=browser` so SolidJS resolves to its client build | ~5 s |
+
+### Running tests
+
+Always invoke tests through `bun run test` (or `bun run check:full`) — never bare `bun test ...`. The SPA test suite uses `@solidjs/testing-library`, which requires Solid's `solid-js` and `solid-js/web` to resolve to the **browser** export conditions; Bun's default `node`-first resolution picks the SSR build and `render()` throws "Client-only API called on the server side". Bun 1.3.11 does not honour `conditions` from any `[test]`/`[runtime]` table in `bunfig.toml`, so the flag is wired into the script entrypoints (`package.json` `test`, `scripts/check-coverage.ts`). Single-file invocation (`bun test apps/web/src/components/TaskInput.test.tsx`) is intentionally unsupported until Bun ships condition support in config — pass the flag manually if you need it: `bun test apps/web/src/components/TaskInput.test.tsx --conditions=browser`.
 
 ## Production container
 

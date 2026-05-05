@@ -6,7 +6,11 @@
 const THRESHOLD = 0.7;
 const SUMMARY_REGEX = /^All files\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)/;
 
-const proc = Bun.spawn(["bun", "test", "apps", "--coverage"], {
+// `--conditions=browser` is required so solid-js's package.json `exports` resolves
+// to its client build for component tests. Bun's default condition set is node-first,
+// which breaks @solidjs/testing-library render() with "Client-only API called on the
+// server side". Backend tests are unaffected by the extra condition.
+const proc = Bun.spawn(["bun", "test", "apps", "--coverage", "--conditions=browser"], {
   stdout: "pipe",
   stderr: "pipe",
   // Pin locale so decimal/grouping separators don't drift the regex.

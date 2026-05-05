@@ -1,5 +1,9 @@
 [install]
 exact = true
 
+# SPA tests require `--conditions=browser` so solid-js resolves to its client build.
+# Bun 1.3.11 ignores `conditions` keys here; the flag is wired into the `test` script
+# in package.json and scripts/check-coverage.ts. See README "Running tests".
 [test]
 coverage = true
+preload = ["./apps/web/test-setup/happy-dom.ts"]
