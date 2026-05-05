@@ -81,6 +81,13 @@ select {
   line-height: var(--text-body-line-height);
 }
 
+.text-body-strong {
+  margin: 0;
+  font-size: var(--text-body-strong-size);
+  font-weight: var(--text-body-strong-weight);
+  line-height: var(--text-body-strong-line-height);
+}
+
 .task-input {
   caret-color: var(--color-accent-default);
 }

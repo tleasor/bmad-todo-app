@@ -30,6 +30,10 @@ export default defineConfig({
       ([, token]) => ({ "border-color": themeVars[token as keyof typeof themeVars] }),
     ],
     [/^text-token-(.+)$/, ([, token]) => ({ color: themeVars[token as keyof typeof themeVars] })],
+    [
+      /^outline-token-(.+)$/,
+      ([, token]) => ({ "outline-color": themeVars[token as keyof typeof themeVars] }),
+    ],
   ],
   theme: {
     colors: themeVars,

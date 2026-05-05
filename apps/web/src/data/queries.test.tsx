@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, render } from "@solidjs/testing-library";
-import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
+import { onlineManager, QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { createEffect, type JSX } from "solid-js";
 import {
   LIVE_REGION_DRAIN_INTERVAL_MS,
@@ -86,6 +86,11 @@ describe("useTasks", () => {
 
   afterEach(() => {
     tasksApi.fetch = originalFetch;
+    // The reconnect test toggles onlineManager.setOnline(false). If that test
+    // throws between the offline call and its final setOnline(true), the
+    // singleton would remain offline and pause every subsequent query. Always
+    // restore online state in afterEach so cross-test leakage is impossible.
+    onlineManager.setOnline(true);
   });
 
   it("registers the architecture-locked tasks-query options against the queryClient cache", async () => {
@@ -171,6 +176,65 @@ describe("useTasks", () => {
     await waitFor(() => (snapshot.isError ? true : undefined));
     expect(snapshot.isError).toBe(true);
     expect(snapshot.error?.message).toContain("boom");
+  });
+
+  it("auto-refetches and clears the error state when the network transitions back to online (refetchOnReconnect contract)", async () => {
+    // useTasks locks retry: 2, so the initial GET + 2 retries = 3 failing calls
+    // before isError flips. We then simulate a network transition via
+    // onlineManager.setOnline(false → true), which is what TanStack listens
+    // to internally; the fourth call succeeds and the query populates.
+    //
+    // Deviation from AC sketch: the dispatchEvent("online") path is a no-op
+    // under happy-dom because onlineManager.isOnline() never transitions
+    // away from true (no offline event was observed). Using the programmatic
+    // setOnline API mirrors the architecture's reconnect wire faithfully and
+    // is the AC-documented fallback (see story §Task 4 fallback note).
+    let calls = 0;
+    tasksApi.fetch = mock((): Promise<TasksGetResponse> => {
+      calls++;
+      if (calls <= 3) {
+        return Promise.reject(new TasksApiError({ status: 500, message: "boom" }));
+      }
+      return Promise.resolve({
+        data: [mockTask({ id: "0193f000-0000-7000-8000-0000000000aa", text: "recovered" })],
+        error: null,
+      });
+    });
+    onlineManager.setOnline(false);
+    const client = makeClient();
+    let snapshot: { isError: boolean; data: Task[] | undefined } = {
+      isError: false,
+      data: undefined,
+    };
+    const Probe = (): JSX.Element => {
+      const query = useTasks();
+      createEffect(() => {
+        snapshot = { isError: query.isError, data: query.data };
+      });
+      return <div data-testid="probe" />;
+    };
+    renderWithClient(client, () => <Probe />);
+
+    // While "offline" the query still attempts and fails (it has data: undefined,
+    // and onlineManager only gates pause-on-pause behavior for paused queries —
+    // the initial fetch fires and exhausts retries).
+    onlineManager.setOnline(true); // ensure first attempt actually runs to error
+
+    await waitFor(() => (snapshot.isError ? true : undefined));
+    expect(snapshot.isError).toBe(true);
+
+    // Simulate the network transitioning offline → online. TanStack's
+    // onlineManager refetches every active query with refetchOnReconnect: true.
+    onlineManager.setOnline(false);
+    onlineManager.setOnline(true);
+
+    await waitFor(() =>
+      snapshot.data && snapshot.data.length > 0 && snapshot.data[0]?.text === "recovered"
+        ? true
+        : undefined,
+    );
+    expect(snapshot.isError).toBe(false);
+    expect(snapshot.data?.[0]?.text).toBe("recovered");
   });
 });
 

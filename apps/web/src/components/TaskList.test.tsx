@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { cleanup, render } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render } from "@solidjs/testing-library";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import axe from "axe-core";
 import type { JSX } from "solid-js";
 import { LOADING_DELAY_MS } from "../constants";
-import { tasksApi, type Task } from "../data/api";
+import { TasksApiError, tasksApi, type Task } from "../data/api";
 import { tasksQueryKey } from "../data/keys";
 import { TaskList } from "./TaskList";
 
@@ -26,6 +26,7 @@ const makeClient = (): QueryClient =>
     defaultOptions: {
       queries: {
         retry: false,
+        retryDelay: 0,
         staleTime: Number.POSITIVE_INFINITY,
         gcTime: Number.POSITIVE_INFINITY,
       },
@@ -128,5 +129,85 @@ describe("TaskList", () => {
     }
 
     await assertNoBlockingAxeViolations(container);
+  });
+});
+
+describe("TaskList fetch error state", () => {
+  let originalList: typeof tasksApi.list;
+
+  beforeEach(() => {
+    originalList = tasksApi.list;
+  });
+
+  afterEach(() => {
+    tasksApi.list = originalList;
+  });
+
+  const waitForErrorUI = async (container: HTMLElement): Promise<void> => {
+    const start = Date.now();
+    while (!container.textContent?.includes("Couldn't load tasks")) {
+      if (Date.now() - start > 1000) {
+        throw new Error("Timed out waiting for ListFetchError UI to mount");
+      }
+      await wait(10);
+    }
+  };
+
+  it("renders the inline error copy and Retry button when the GET fails", async () => {
+    tasksApi.list = mock(() => Promise.reject(new TasksApiError({ status: 500, message: "boom" })));
+    const client = makeClient();
+    const { container, getByRole, getByText } = renderWithClient(client, () => <TaskList />);
+
+    await waitForErrorUI(container);
+    expect(getByText("Couldn't load tasks — check connection.")).toBeDefined();
+    expect(getByRole("button", { name: "Retry" })).toBeDefined();
+    await assertNoBlockingAxeViolations(container);
+  });
+
+  it("Retry click re-invokes tasksApi.list", async () => {
+    const listMock = mock(() =>
+      Promise.reject(new TasksApiError({ status: 500, message: "boom" })),
+    );
+    tasksApi.list = listMock;
+    const client = makeClient();
+    const { container, getByRole } = renderWithClient(client, () => <TaskList />);
+
+    await waitForErrorUI(container);
+    const callsBeforeRetry = listMock.mock.calls.length;
+    fireEvent.click(getByRole("button", { name: "Retry" }));
+    await wait(50);
+    expect(listMock.mock.calls.length).toBeGreaterThan(callsBeforeRetry);
+  });
+
+  it("Retry success transitions error → populated", async () => {
+    // useTasks locks retry: 2, so the initial query fires 3 calls (initial + 2
+    // retries) before isError flips. The Retry click triggers a fresh refetch
+    // (call 3) which we resolve to success, populating the list.
+    let calls = 0;
+    tasksApi.list = mock(() => {
+      if (calls++ < 3) {
+        return Promise.reject(new TasksApiError({ status: 500, message: "boom" }));
+      }
+      return Promise.resolve([
+        mockTask({ id: "0193f000-0000-7000-8000-000000000099", text: "recovered" }),
+      ]);
+    });
+    const client = makeClient();
+    const { container, getByRole, getByText, queryByText } = renderWithClient(client, () => (
+      <TaskList />
+    ));
+
+    await waitForErrorUI(container);
+    fireEvent.click(getByRole("button", { name: "Retry" }));
+
+    const start = Date.now();
+    while (!container.textContent?.includes("recovered")) {
+      if (Date.now() - start > 1000) {
+        throw new Error("Timed out waiting for populated state after Retry");
+      }
+      await wait(10);
+    }
+    expect(getByText("recovered")).toBeDefined();
+    expect(queryByText("Couldn't load tasks — check connection.")).toBeNull();
   });
 });
