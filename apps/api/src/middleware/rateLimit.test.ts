@@ -1,6 +1,6 @@
 import { type AnyElysia, Elysia } from "elysia";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { RATE_LIMIT_BURST } from "../constants";
+import { RATE_LIMIT_BURST, RATE_LIMIT_REFILL_PER_SEC } from "../constants";
 import { registerOnError } from "../onError";
 import { __getBucketsForTests, __resetBucketsForTests, consumeToken, rateLimit } from "./rateLimit";
 import { requestLogger } from "./requestLogger";
@@ -84,6 +84,14 @@ describe("consumeToken", () => {
     const second = consumeToken("a", 0);
     expect(second.resetUnixSec).toBeGreaterThan(0);
     expect(Number.isFinite(second.resetUnixSec)).toBe(true);
+  });
+
+  it("resetUnixSec reflects the post-consume bucket state", () => {
+    const now = 100_000;
+    const result = consumeToken("a", now);
+    const expectedMsToFull = (1 / RATE_LIMIT_REFILL_PER_SEC) * 1000;
+    expect(result.remaining).toBe(RATE_LIMIT_BURST - 1);
+    expect(result.resetUnixSec).toBe(Math.ceil((now + expectedMsToFull) / 1000));
   });
 });
 

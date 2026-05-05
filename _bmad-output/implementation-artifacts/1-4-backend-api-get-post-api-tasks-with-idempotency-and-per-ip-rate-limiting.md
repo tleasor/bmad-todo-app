@@ -1,6 +1,6 @@
 # Story 1.4: Backend API — GET + POST `/api/tasks` with Idempotency and Per-IP Rate Limiting
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -352,6 +352,10 @@ so that the frontend can fetch the list and create tasks safely on flaky network
   - [x] Run `git grep -n "created_at\\|updated_at"` and confirm matches stay confined to `apps/api/src/storage/`. If any new match appears in `routes/`, `middleware/`, or `index.ts`, fix before declaring done.
   - [x] Run `git grep -n "INSERT\\|SELECT\\|UPDATE\\|DELETE FROM"` and confirm SQL stays inside `apps/api/src/storage/`. Inline SQL in a route handler is a hard rule violation.
   - [x] Run `git grep -n "console\\.\\(log\\|warn\\|error\\)"` and confirm matches stay in `log.ts` (implementation), `*.test.ts`, or `scripts/`. Production code uses `logger.*`.
+
+### Review Findings
+
+- [x] [Review][Patch] X-RateLimit-Reset is computed before consuming a token [apps/api/src/middleware/rateLimit.ts:54]
 
 ## Dev Notes
 

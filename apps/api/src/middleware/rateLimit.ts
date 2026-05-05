@@ -51,10 +51,12 @@ export const consumeToken = (ip: string, now: number): ConsumeResult => {
     bucket.tokens + elapsedSec * RATE_LIMIT_REFILL_PER_SEC,
   );
   bucket.lastRefillMs = now;
-  const tokensToFull = RATE_LIMIT_BURST - bucket.tokens;
-  const resetUnixSec = Math.ceil((now + (tokensToFull / RATE_LIMIT_REFILL_PER_SEC) * 1000) / 1000);
   if (bucket.tokens >= 1) {
     bucket.tokens -= 1;
+    const tokensToFull = RATE_LIMIT_BURST - bucket.tokens;
+    const resetUnixSec = Math.ceil(
+      (now + (tokensToFull / RATE_LIMIT_REFILL_PER_SEC) * 1000) / 1000,
+    );
     return {
       allowed: true,
       remaining: Math.floor(bucket.tokens),
@@ -62,6 +64,8 @@ export const consumeToken = (ip: string, now: number): ConsumeResult => {
       retryAfterSec: 0,
     };
   }
+  const tokensToFull = RATE_LIMIT_BURST - bucket.tokens;
+  const resetUnixSec = Math.ceil((now + (tokensToFull / RATE_LIMIT_REFILL_PER_SEC) * 1000) / 1000);
   const deficit = 1 - bucket.tokens;
   const retryAfterSec = Math.max(1, Math.ceil(deficit / RATE_LIMIT_REFILL_PER_SEC));
   return { allowed: false, remaining: 0, resetUnixSec, retryAfterSec };
