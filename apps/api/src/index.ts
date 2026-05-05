@@ -1,5 +1,5 @@
 import { statSync } from "node:fs";
-import { join, normalize, resolve } from "node:path";
+import { extname, join, normalize, resolve } from "node:path";
 import { Elysia } from "elysia";
 import { env } from "./env";
 import { logger } from "./log";
@@ -11,6 +11,15 @@ import { healthRoute } from "./routes/health";
 import { tasksRoute } from "./routes/tasks";
 import { db, setDbFailed, setDbReady } from "./storage/db";
 import { runMigrations } from "./storage/migrations/runner";
+
+// Chrome rejects ES modules served without an explicit JavaScript MIME under
+// strict module type checking — without this map, the SPA bundle silently
+// fails to mount in production.
+const STATIC_ASSET_CONTENT_TYPES: Record<string, string> = {
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+};
 
 // Boot-time migration: runs on every module import (including tests) so
 // /health reflects the real readiness state. The listening side-effect
@@ -48,7 +57,9 @@ export const serveSpa = (
   const url = new URL(request.url);
   const candidate = resolve(dist, `.${normalize(url.pathname)}`);
   if (candidate.startsWith(`${dist}/`) && isFile(candidate)) {
-    return new Response(Bun.file(candidate));
+    const contentType =
+      STATIC_ASSET_CONTENT_TYPES[extname(candidate).toLowerCase()] ?? "application/octet-stream";
+    return new Response(Bun.file(candidate), { headers: { "Content-Type": contentType } });
   }
   return new Response(Bun.file(indexPath), {
     headers: { "Content-Type": "text/html; charset=utf-8" },

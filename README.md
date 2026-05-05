@@ -35,10 +35,15 @@ Always invoke tests through `bun run test` (or `bun run check:full`) — never b
 ## Production container
 
 ```bash
-docker compose up --build
+docker compose up --build      # build + run (first run, or after code changes)
+docker compose up              # subsequent runs reuse the built image
+docker compose down            # stop the container; the named volume is preserved
+docker compose down -v         # ⚠️ stop + remove the named volume (wipes all task data)
 ```
 
-Serves the SPA and API on a single port (3000). `/health` returns `{ "status": "ok", "uptime": ... }`. Logs are JSON lines on stdout — `docker compose logs` to view. SQLite data persists in the `tasks-data` named volume at `/data/tasks.db`.
+Serves the SPA and API on a single port (3000). `/health` returns HTTP 200 `{ "status": "ok", "uptime": ... }` once boot-time migrations apply (typically within 1–2 s of container start). Logs are JSON lines on stdout — `docker compose logs` to view.
+
+SQLite data persists in the `tasks-data` named volume mounted at `/data` inside the container; the database file lives at `/data/tasks.db` (with `tasks.db-shm` / `tasks.db-wal` alongside for WAL journaling). The volume survives `docker compose down` and is only removed when you pass `-v`.
 
 ## Environment variables
 

@@ -1,13 +1,27 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const SLOW_NETWORK_DELAY_MS = 800;
 const OPTIMISTIC_WINDOW_MS = 100;
+
+const waitForListSettled = async (page: Page): Promise<void> => {
+  // Without this, preCount can be sampled while the initial GET is in flight
+  // (skeleton never mounts when GET beats the 200 ms gate), so DB rows paint
+  // after measurement and inflate the post-count past preCount + 1.
+  await expect(async () => {
+    const itemCount = await page.getByRole("listitem").count();
+    const emptyVisible = await page
+      .getByText("No tasks yet. Start by typing above.")
+      .isVisible();
+    expect(itemCount > 0 || emptyVisible).toBe(true);
+  }).toPass({ timeout: 5000 });
+};
 
 test("capture happy path renders the task and clears + refocuses the input", async ({ page }) => {
   await page.goto("/");
   const input = page.getByLabel("New task");
   await expect(input).toBeFocused();
+  await waitForListSettled(page);
 
   const preCount = await page.getByRole("listitem").count();
   const text = `buy milk ${Date.now()}`;

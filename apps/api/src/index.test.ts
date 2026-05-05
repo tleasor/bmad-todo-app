@@ -93,6 +93,14 @@ describe("serveSpa in production", () => {
     expect(await res.text()).toBe("console.warn('hi')");
   });
 
+  it("sets a JavaScript MIME on .js assets so Chrome's strict module check passes", async () => {
+    const res = serveSpa(new Request("http://localhost/assets/app.js"), {
+      isDev: false,
+      spaDist: TMP_DIST,
+    });
+    expect(res.headers.get("content-type")).toContain("text/javascript");
+  });
+
   it("falls back to index.html for an unknown SPA route", async () => {
     const res = serveSpa(new Request("http://localhost/some/deep/route"), {
       isDev: false,

@@ -4,11 +4,20 @@ import { expect, test, type Page } from "@playwright/test";
 const POST_DELAY_MS = 800;
 
 const waitForInitialTasksLoad = async (page: Page): Promise<void> => {
-  // The GET /api/tasks call settles quickly on the dev server but is racy with
-  // the optimistic POST that the test is about to issue. Waiting for the
-  // skeleton (LoadingState) to unmount avoids capturing pre-counts before the
-  // initial list has populated.
+  // The skeleton-not-shown signal alone is insufficient: when the dev GET
+  // resolves before the 200 ms LoadingState gate trips, the skeleton never
+  // mounts and toHaveCount(0) passes while the list is still pre-paint.
+  // Also wait for the list region to reach a settled state — either rendered
+  // listitems or the visible EmptyState copy — so preCount is measured
+  // against actual DOM, not a transient pre-paint.
   await expect(page.locator("[data-testid='skeleton-row']")).toHaveCount(0, { timeout: 5000 });
+  await expect(async () => {
+    const itemCount = await page.getByRole("listitem").count();
+    const emptyVisible = await page
+      .getByText("No tasks yet. Start by typing above.")
+      .isVisible();
+    expect(itemCount > 0 || emptyVisible).toBe(true);
+  }).toPass({ timeout: 5000 });
 };
 
 test("pending state — SyncIndicator appears after 300 ms then unmounts on success", async ({
