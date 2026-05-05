@@ -101,3 +101,11 @@ export const taskRepo: TaskRepo = {
   update: (id, input) => ensureRepo().update(id, input),
   delete: (id) => ensureRepo().delete(id),
 };
+
+export const __setTaskRepoForTests = (repo: TaskRepo): void => {
+  _taskRepo = repo;
+};
+
+export const __resetTaskRepoForTests = (): void => {
+  _taskRepo = undefined;
+};

@@ -1,12 +1,20 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import { __resetBucketsForTests } from "./middleware/rateLimit";
 import { app, serveSpa } from "./index";
 
 let TMP_DIST: string;
 
 // health route owned by routes/health.ts; see health.test.ts
+//
+// The rate-limit module is module-level singleton state shared with the
+// production app; reset it in beforeEach so test order across files cannot
+// trip the rate limit on a shared fixture IP (see Story 1.4 dev notes).
+beforeEach(() => {
+  __resetBucketsForTests();
+});
 
 describe("boot integration", () => {
   it("/health returns 200 after boot-time migrations have applied", async () => {
@@ -14,6 +22,16 @@ describe("boot integration", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { status: string };
     expect(body.status).toBe("ok");
+  });
+});
+
+describe("tasks api smoke", () => {
+  it("GET /api/tasks returns 200 with a JSON array (route is wired)", async () => {
+    const res = await app.handle(new Request("http://localhost/api/tasks"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type") ?? "").toContain("application/json");
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
   });
 });
 

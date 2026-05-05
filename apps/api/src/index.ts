@@ -3,9 +3,12 @@ import { join, normalize, resolve } from "node:path";
 import { Elysia } from "elysia";
 import { env } from "./env";
 import { logger } from "./log";
+import { bodySize } from "./middleware/bodySize";
+import { rateLimit } from "./middleware/rateLimit";
 import { requestLogger } from "./middleware/requestLogger";
 import { registerOnError } from "./onError";
 import { healthRoute } from "./routes/health";
+import { tasksRoute } from "./routes/tasks";
 import { db, setDbFailed, setDbReady } from "./storage/db";
 import { runMigrations } from "./storage/migrations/runner";
 
@@ -52,10 +55,11 @@ export const serveSpa = (
   });
 };
 
-const baseApp = new Elysia().use(requestLogger()).use(healthRoute);
+const baseApp = new Elysia().use(requestLogger()).use(bodySize()).use(rateLimit()).use(healthRoute);
 registerOnError(baseApp, { isDev: env.IS_DEV });
 
 export const app = baseApp
+  .use(tasksRoute)
   .get("/api", () => new Response("Not Found", { status: 404 }))
   .get("/api/", () => new Response("Not Found", { status: 404 }))
   .get("/api/*", () => new Response("Not Found", { status: 404 }))
@@ -64,6 +68,6 @@ export const app = baseApp
 export type App = typeof app;
 
 if (import.meta.main) {
-  app.listen(env.PORT);
+  app.listen({ port: env.PORT, maxRequestBodySize: 1024 * 1024 });
   logger.info("listening", { port: env.PORT });
 }

@@ -1,1 +1,6 @@
-export {};
+export const MAX_TASK_TEXT_LENGTH = 500;
+export const MAX_REQUEST_BODY_BYTES = 10_240;
+export const RATE_LIMIT_BURST = 20;
+export const RATE_LIMIT_REFILL_PER_SEC = 2;
+export const RATE_LIMIT_BUCKET_TTL_MS = 10 * 60 * 1000;
+export const RATE_LIMIT_SWEEP_INTERVAL_MS = 60 * 1000;

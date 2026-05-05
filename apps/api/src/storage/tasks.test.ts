@@ -1,8 +1,14 @@
 import { join } from "node:path";
-import { beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { type Database, openDb } from "./db";
 import { runMigrations } from "./migrations/runner";
-import { createTaskRepo } from "./tasks";
+import {
+  __resetTaskRepoForTests,
+  __setTaskRepoForTests,
+  createTaskRepo,
+  type TaskRepo,
+  taskRepo,
+} from "./tasks";
 
 const MIGRATIONS_DIR = join(import.meta.dir, "migrations");
 
@@ -117,5 +123,27 @@ describe("taskRepo", () => {
     it("delete throws (Story 3.1)", () => {
       expect(() => repo.delete("some-id")).toThrow(/Story 3.1/);
     });
+  });
+});
+
+describe("taskRepo singleton test seam", () => {
+  afterEach(() => {
+    __resetTaskRepoForTests();
+  });
+
+  it("__setTaskRepoForTests swaps the singleton's delegate", () => {
+    const fake: TaskRepo = {
+      list: () => [],
+      get: () => undefined,
+      create: () => {
+        throw new Error("not used in this test");
+      },
+      update: () => undefined,
+      delete: () => false,
+    };
+    __setTaskRepoForTests(fake);
+    expect(taskRepo.list()).toEqual([]);
+    expect(taskRepo.get("anything")).toBeUndefined();
+    expect(taskRepo.delete("anything")).toBe(false);
   });
 });
