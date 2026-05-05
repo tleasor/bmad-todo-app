@@ -10,10 +10,11 @@ export const healthRoute = new Elysia().get("/health", ({ request, set }) => {
   if (status.ready) return { status: "ok", uptime: process.uptime() };
   set.status = 503;
   const requestId = getRequestId(request) ?? Bun.randomUUIDv7();
+  const details = env.IS_DEV && status.error ? { message: status.error.message } : undefined;
   return errorEnvelope(
     "service_unavailable",
     "Database migrations have not completed",
     requestId,
-    env.IS_DEV ? { message: status.error?.message } : undefined,
+    details,
   );
 });

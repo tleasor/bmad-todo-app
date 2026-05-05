@@ -39,11 +39,6 @@ describe("openDb", () => {
 });
 
 describe("readiness state", () => {
-  beforeEach(() => {
-    setDbFailed(new Error("reset"));
-    setDbFailed(new Error("reset"));
-  });
-
   afterEach(() => {
     setDbReady();
   });

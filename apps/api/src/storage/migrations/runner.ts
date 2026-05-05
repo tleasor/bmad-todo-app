@@ -32,6 +32,22 @@ export const runMigrations = (db: Database, options?: { dir?: string }): { appli
   const files = readdirSync(dir)
     .filter((f) => f.endsWith(".up.sql"))
     .sort();
+
+  const seen = new Map<number, string>();
+  for (const file of files) {
+    const version = parseVersion(file);
+    if (version === undefined) continue;
+    const prior = seen.get(version);
+    if (prior !== undefined) {
+      throw new Error(`duplicate migration version ${version}: ${prior}, ${file}`);
+    }
+    seen.set(version, file);
+  }
+
+  if (seen.size === 0 && applied.size === 0) {
+    throw new Error(`no migration files found in ${dir} and no prior versions recorded`);
+  }
+
   const newlyApplied: number[] = [];
   for (const file of files) {
     const version = parseVersion(file);
@@ -41,6 +57,9 @@ export const runMigrations = (db: Database, options?: { dir?: string }): { appli
     }
     if (applied.has(version)) continue;
     const sql = readFileSync(join(dir, file), "utf8");
+    if (sql.trim().length === 0) {
+      throw new Error(`migration ${file} is empty`);
+    }
     const apply = db.transaction(() => {
       db.exec(sql);
       db.run(`INSERT INTO ${SCHEMA_VERSIONS_TABLE} (version, applied_at) VALUES (?, ?)`, [

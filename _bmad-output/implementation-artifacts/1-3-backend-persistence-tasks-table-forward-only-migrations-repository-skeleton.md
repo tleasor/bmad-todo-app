@@ -1,6 +1,6 @@
 # Story 1.3: Backend Persistence — Tasks Table, Forward-Only Migrations, Repository Skeleton
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -266,7 +266,25 @@ so that subsequent API stories can read and write tasks atomically against a rea
 
 ### Review Findings
 
-<!-- Populated by code-review workflow after dev-story completes -->
+_Code review run 2026-04-30 — Blind Hunter, Edge Case Hunter, Acceptance Auditor (parallel adversarial review). 6 patches, 11 deferred, ~22 dismissed as per-spec design or noise._
+
+- [x] [Review][Patch] Add `PRAGMA table_info(schema_versions)` assertions to the table_info test [apps/api/src/storage/migrations/runner.test.ts:178-192] — AC #4(a) explicitly requires asserting columns/types/notnull/dflt_value flags for **both** `tasks` and `schema_versions`; the diff only asserts `tasks`. **Applied**: added a parallel `PRAGMA table_info(schema_versions)` test asserting `version INTEGER PK` and `applied_at INTEGER NOT NULL`.
+- [x] [Review][Patch] Remove duplicate `setDbFailed` call from db.test.ts readiness state describe [apps/api/src/storage/db.test.ts] — `beforeEach` called `setDbFailed(new Error("reset"))` twice; the duplicate was dead code. **Applied**: removed the `beforeEach` block entirely (the existing readiness tests are self-contained and set their own initial state via `setDbReady`/`setDbFailed`). Default-state-at-module-load assertion (originally part of this patch) deferred — Bun shares module state across test files in a single test run, so `_ready` is contaminated by `index.ts`'s top-level `setDbReady()` once any test file imports `./index`. The default state is verifiable only via process isolation.
+- [x] [Review][Patch] Detect duplicate parsed migration versions before any SQL runs [apps/api/src/storage/migrations/runner.ts:36-46] — Two files with the same numeric prefix (e.g. `0001_x.up.sql` + `001_x.up.sql`) previously failed late with a cryptic `UNIQUE constraint failed`. **Applied**: pre-flight pass builds `Map<number, string>` and throws `Error("duplicate migration version N: a, b")` before any DB writes. Test added.
+- [x] [Review][Patch] Reject empty `.up.sql` files [apps/api/src/storage/migrations/runner.ts:56-58] — `db.exec("")` on a zero-byte migration silently succeeded and recorded the version. **Applied**: throws `Error("migration <file> is empty")` after `readFileSync` if the trimmed content is empty. Test added.
+- [x] [Review][Patch] Omit `details` key entirely when `status.error` is undefined [apps/api/src/routes/health.ts:13] — In dev with `{ ready: false, error: undefined }`, the envelope shipped `details: {}`. **Applied**: `const details = env.IS_DEV && status.error ? { message: status.error.message } : undefined;`.
+- [x] [Review][Patch] Detect a wholly-empty migrations source [apps/api/src/storage/migrations/runner.ts:48-50] — Empty migrations dir + empty `schema_versions` previously returned `{ applied: [] }` and `setDbReady()` ran with no `tasks` table. **Applied**: throws `Error("no migration files found in <dir> and no prior versions recorded")` when both sets are empty. Test added.
+- [x] [Review][Defer] db() singleton has no close/shutdown hook [apps/api/src/storage/db.ts:14-19] — deferred, out of story scope (graceful shutdown story).
+- [x] [Review][Defer] Concurrent migration runner has no advisory lock / BEGIN IMMEDIATE [apps/api/src/storage/migrations/runner.ts:23-55] — deferred, current deployment is single-process per container (Story 1.1).
+- [x] [Review][Defer] No retry on transient migration failure at boot [apps/api/src/index.ts:13-25] — deferred, operational concern not in story scope.
+- [x] [Review][Defer] INSERT OR IGNORE silently swallows CHECK violations on text length [apps/api/src/storage/tasks.ts:60-72] — deferred, input validation owned by Story 1.4 router.
+- [x] [Review][Defer] Task `id` is TEXT with no UUIDv7 format validation [apps/api/src/storage/migrations/001_create_tasks.up.sql:2] — deferred, validation owned by Story 1.4 router.
+- [x] [Review][Defer] `list()` has no LIMIT / pagination [apps/api/src/storage/tasks.ts:21-29] — deferred, pagination not in MVP scope.
+- [x] [Review][Defer] Lexical sort mis-orders 4-digit and 3-digit prefixes [apps/api/src/storage/migrations/runner.ts:32-34] — deferred, known limitation called out in spec ("we'll bump to four-digit prefixes before that's a problem").
+- [x] [Review][Defer] db() / taskRepo lazy singletons retry-storm on PRAGMA failure [apps/api/src/storage/db.ts:14-19, apps/api/src/storage/tasks.ts:91-103] — deferred, edge case requiring failure memoization.
+- [x] [Review][Defer] `create()` invariant throw becomes reachable once `delete` ships [apps/api/src/storage/tasks.ts:60-73] — deferred, revisit in Story 3.1 (delete race makes "INSERT OR IGNORE no-op + row gone" a real path).
+- [x] [Review][Defer] Migration SQL containing explicit BEGIN/COMMIT collides with the wrapping transaction [apps/api/src/storage/migrations/runner.ts:44-50] — deferred, convention concern; consider documenting "no BEGIN/COMMIT inside migration files" in the next runner change.
+- [x] [Review][Defer] Boot-time `String(err)` coercion loses non-Error rejection detail (e.g. SQLite error codes, cause chain) [apps/api/src/index.ts:21-25] — deferred, edge case for non-Error throws.
 
 ## Dev Notes
 

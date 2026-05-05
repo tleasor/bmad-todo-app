@@ -174,4 +174,71 @@ describe("runMigrations", () => {
       ),
     ).toThrow();
   });
+
+  it("PRAGMA table_info(schema_versions) matches the documented schema", () => {
+    runMigrations(db);
+    const rows = db.query<TableInfoRow, []>(`PRAGMA table_info(${SCHEMA_VERSIONS_TABLE})`).all();
+    const byName = new Map(rows.map((r) => [r.name, r]));
+
+    const version = byName.get("version");
+    expect(version).toBeDefined();
+    expect(version?.type).toBe("INTEGER");
+    expect(version?.pk).toBe(1);
+
+    const appliedAt = byName.get("applied_at");
+    expect(appliedAt).toBeDefined();
+    expect(appliedAt?.type).toBe("INTEGER");
+    expect(appliedAt?.notnull).toBe(1);
+  });
+
+  it("throws when two migration files share the same parsed version", () => {
+    let tmpDir: string | undefined;
+    try {
+      tmpDir = mkdtempSync(join(tmpdir(), "migrations-dup-"));
+      writeFileSync(join(tmpDir, "001_a.up.sql"), "CREATE TABLE a (id INTEGER PRIMARY KEY)");
+      writeFileSync(join(tmpDir, "0001_b.up.sql"), "CREATE TABLE b (id INTEGER PRIMARY KEY)");
+      expect(() => runMigrations(db, { dir: tmpDir as string })).toThrow(
+        /duplicate migration version 1/,
+      );
+      const aTable = db
+        .query<{ name: string }, []>(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='a'",
+        )
+        .get();
+      expect(aTable).toBeNull();
+    } finally {
+      if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws when a migration file is empty", () => {
+    let tmpDir: string | undefined;
+    try {
+      tmpDir = mkdtempSync(join(tmpdir(), "migrations-empty-"));
+      writeFileSync(join(tmpDir, "001_empty.up.sql"), "   \n  \n");
+      expect(() => runMigrations(db, { dir: tmpDir as string })).toThrow(
+        /001_empty\.up\.sql is empty/,
+      );
+      const versionRow = db
+        .query<{ version: number }, [number]>(
+          `SELECT version FROM ${SCHEMA_VERSIONS_TABLE} WHERE version = ?`,
+        )
+        .get(1);
+      expect(versionRow).toBeNull();
+    } finally {
+      if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws when no migration files are found and no versions are recorded", () => {
+    let tmpDir: string | undefined;
+    try {
+      tmpDir = mkdtempSync(join(tmpdir(), "migrations-empty-dir-"));
+      expect(() => runMigrations(db, { dir: tmpDir as string })).toThrow(
+        /no migration files found/,
+      );
+    } finally {
+      if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
