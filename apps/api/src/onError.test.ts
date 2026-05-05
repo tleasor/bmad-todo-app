@@ -108,7 +108,8 @@ describe("onError envelope", () => {
     const errLine = lines.find((l) => l.msg === "unhandled error");
     expect(errLine).toBeDefined();
     expect(errLine?.errorCode).toBe("internal_error");
-    expect(typeof errLine?.stack === "object" || typeof errLine?.stack === "string").toBe(true);
+    expect(typeof errLine?.stack).toBe("string");
+    expect((errLine?.stack as string | undefined)?.length ?? 0).toBeGreaterThan(0);
   });
 
   it("in dev mode, unknown error envelope includes the original message in details", async () => {

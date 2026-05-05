@@ -7,7 +7,7 @@ export type ErrorCode =
   | "internal_error"
   | "service_unavailable";
 
-export const ERROR_STATUS: Readonly<Record<ErrorCode, number>> = Object.freeze({
+export const ERROR_STATUS = Object.freeze({
   validation_error: 400,
   not_found: 404,
   id_conflict: 409,
@@ -15,4 +15,4 @@ export const ERROR_STATUS: Readonly<Record<ErrorCode, number>> = Object.freeze({
   rate_limited: 429,
   internal_error: 500,
   service_unavailable: 503,
-});
+} as const) satisfies Record<ErrorCode, number>;

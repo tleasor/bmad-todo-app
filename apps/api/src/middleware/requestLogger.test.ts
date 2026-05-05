@@ -4,7 +4,7 @@ import { AppError } from "../errors/AppError";
 import { ERROR_STATUS } from "../errors/codes";
 import { errorEnvelope } from "../errors/envelope";
 import { logger } from "../log";
-import { getRequestId, requestLogger } from "./requestLogger";
+import { getRequestId, getRequestStartTs, requestLogger } from "./requestLogger";
 
 let original: typeof process.stdout.write;
 let captured: string[];
@@ -119,5 +119,21 @@ describe("requestLogger", () => {
   it("getRequestId returns undefined for a Request that never went through onRequest", () => {
     const orphan = new Request("http://localhost/orphan");
     expect(getRequestId(orphan)).toBeUndefined();
+  });
+
+  it("getRequestStartTs returns undefined for a Request that never went through onRequest", () => {
+    const orphan = new Request("http://localhost/orphan");
+    expect(getRequestStartTs(orphan)).toBeUndefined();
+  });
+
+  it("getRequestStartTs returns a non-negative number after onRequest fires", async () => {
+    let captured: number | undefined;
+    const app = new Elysia().use(requestLogger()).get("/x", ({ request }) => {
+      captured = getRequestStartTs(request);
+      return "ok";
+    });
+    await app.handle(new Request("http://localhost/x"));
+    expect(captured).toBeDefined();
+    expect(captured ?? -1).toBeGreaterThanOrEqual(0);
   });
 });

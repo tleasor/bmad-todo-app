@@ -1,6 +1,6 @@
 # Story 1.2: Backend Plumbing — Logger, Error Envelope, Request Middleware, Health Endpoint
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -70,6 +70,20 @@ so that every subsequent endpoint emits structured logs, returns consistent erro
 - [x] **Task 7 — Quick review pass against architecture** (AC: #12)
   - [x] Re-read `_bmad-output/planning-artifacts/architecture/implementation-patterns-consistency-rules.md` § "Backend handler discipline" + "Logging" + "Anti-Patterns". Confirm: no `console.log` in production code; `logger` is the single stdout writer; every log line emitted from inside a request context carries `requestId` (search `apps/api/src/**/*.ts` for `logger.` calls and verify); no `export default`; no `any`; no `// @ts-ignore`.
   - [x] Re-read `_bmad-output/planning-artifacts/architecture/core-architectural-decisions.md` § D4 + D8. Confirm `ErrorCode` exhausts the union; `ERROR_STATUS` matches the doc; D8's log fields all appear at least once across the suite.
+
+### Review Findings
+
+- [x] [Review][Patch] Synthesize a "response" exit log inside `onError` so error-path requests still emit `status` + `durationMs` per AC #4 [apps/api/src/onError.ts:26-56]
+- [x] [Review][Patch] Add inline comments justifying the deliberate test gap on the WeakMap fallback paths [apps/api/src/middleware/requestLogger.ts:20-31, apps/api/src/onError.ts:17-24]
+- [x] [Review][Patch] `requestId fallback` warn log omits the new requestId itself [apps/api/src/middleware/requestLogger.ts:25-28, apps/api/src/onError.ts:20-23]
+- [x] [Review][Patch] Stack assertion in onError test is too loose — `typeof === "object"` passes on `null` [apps/api/src/onError.test.ts:111]
+- [x] [Review][Patch] `getRequestStartTs` now used by `onError` for durationMs computation; behavioral test added [apps/api/src/middleware/requestLogger.ts:9, apps/api/src/middleware/requestLogger.test.ts]
+- [x] [Review][Patch] `ERROR_STATUS` should add `as const` per Task 2's `as const + Object.freeze` instruction [apps/api/src/errors/codes.ts:9-18]
+- [x] [Review][Defer] `log.ts` JSON.stringify throws on circular refs and BigInt fields [apps/api/src/log.ts:23] — deferred, edge case unlikely in current callers
+- [x] [Review][Defer] No concurrent-request test for WeakMap-keyed requestId correlation [apps/api/src/middleware/requestLogger.test.ts] — deferred, central concurrency contract unverified
+- [x] [Review][Defer] Error envelope responses have no content-type assertion in any test [apps/api/src/onError.test.ts] — deferred, test gap
+- [x] [Review][Defer] `AppError` ignores standard `ErrorOptions.cause` — wrapping upstream errors loses original stack [apps/api/src/errors/AppError.ts] — deferred, beyond story scope
+- [x] [Review][Defer] `AnyElysia` return types on `requestLogger` / `registerOnError` erase Elysia's chained inference [apps/api/src/middleware/requestLogger.ts:33, apps/api/src/onError.ts:15] — deferred, intentional dev tradeoff per Debug Log
 
 ## Dev Notes
 
@@ -434,3 +448,4 @@ claude-opus-4-7 (1M context)
 | Date | Change | Author |
 |---|---|---|
 | 2026-04-30 | Story 1.2 implemented: structured logger, error envelope, request-logger middleware (WeakMap-keyed requestId), global onError handler, `/health` extracted to `routes/health.ts`. 38 tests, coverage 96.76% funcs / 95.13% lines, full check pipeline green. | Dev Agent (Opus 4.7) |
+| 2026-04-30 | Code review patches applied: synthesized `response` exit log inside `onError` (AC #4 compliance for error paths), `requestId` added to `requestId fallback` warn lines, fallback paths documented, stack-type assertion tightened, `getRequestStartTs` retained as durationMs source with new behavioral tests, `ERROR_STATUS` narrowed via `as const`. 40 tests, coverage 98.15% funcs / 95.16% lines, `bun run check` green. | Code Review (Opus 4.7) |

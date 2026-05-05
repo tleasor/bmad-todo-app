@@ -17,12 +17,18 @@ const resolveIp = (request: Request): string => {
   return "unknown";
 };
 
+// onRequest should always populate REQUEST_IDS before this runs. The fallback
+// path below is defensive only and is not exercised by tests — forcing it
+// would require either widening the public API or contriving a Request that
+// bypasses onRequest, neither of which is worth the surface-area cost. If it
+// ever fires in production, the warn line is the operator-visible symptom.
 const ensureRequestId = (request: Request): string => {
   let requestId = REQUEST_IDS.get(request);
   if (!requestId) {
     requestId = Bun.randomUUIDv7();
     REQUEST_IDS.set(request, requestId);
     logger.warn("requestId fallback", {
+      requestId,
       method: request.method,
       path: new URL(request.url).pathname,
     });
