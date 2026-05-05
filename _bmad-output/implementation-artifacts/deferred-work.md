@@ -172,6 +172,11 @@
 
 ## Deferred from: code review of 4-1-arrow-up-down-j-k-row-navigation (2026-05-01)
 
+## Deferred from: code review of 4-5-focus-ring-audit-and-keyboard-only-playwright-spec (2026-05-05)
+
+- **[optional]** `e2e/keyboard.spec.ts` — Outline accent color (`--color-accent-default`) not validated in focus-ring-audit assertions. AC #3 only requires `outline-width`, `outline-style`, and `outline-offset`; color verification is out of spec scope. Add a color assertion if a future story adds contrast-mode or theme-switching tests.
+- **[optional]** `e2e/keyboard.spec.ts` — `task-row--leaving` class persistence on beta's DOM slot after undo is not explicitly asserted. The Journey 3 test relies on SolidJS `<Index>` reusing the leaving slot so `j`/`k` skips it, but no assertion confirms the class is present post-undo. Pre-existing SolidJS behavior; add assertion if navigation-after-undo becomes flaky.
+
 - **[pre-epic-4]** `apps/web/src/components/TaskRow.tsx:36-51` — Story 4.4 typing-anywhere forward-compat hazard: if Story 4.4 adds a document-level keydown listener, its precedence vs. the row-level `j`/`k` handlers is unspecified. The epic spec excludes `j`/`k` from typing-anywhere-captures, but no integration contract or ordering guard exists today. Story 4.4 must define the precedence explicitly.
 - **[optional]** `apps/web/src/styles/reset.css:32-38` — `:focus-visible` programmatic focus reliability: `.focus()` calls do not reliably trigger `:focus-visible` in all browser/session states (requires prior keyboard activity per Chrome heuristics). The app's focus ring depends on `:focus-visible` only; no `.task-row:focus` fallback. Acceptable given Playwright tests confirm the 2px outline in keyboard-activity context; revisit if a non-keyboard-initiated focus path reports invisible focus rings.
 - **[optional]** `apps/web/src/components/TaskRow.tsx:38,44` — Global `document.querySelectorAll("[data-task-id]")` not scoped to the list container. Navigation reuses the same unscoped pattern already established by `handleDelete()`. If a future page ever renders multiple task lists or hidden rows (virtualization, portals), the index calculation breaks. Pre-existing architectural pattern; track alongside any multi-list story.
