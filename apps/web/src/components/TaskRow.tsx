@@ -64,6 +64,26 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
       event.preventDefault();
       (document.querySelector('[aria-label="New task"]') as HTMLElement | null)?.focus();
     }
+    if (
+      event.key.length === 1 &&
+      event.key !== " " &&
+      event.key !== "i" &&
+      event.key !== "j" &&
+      event.key !== "k" &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      event.preventDefault();
+      const taskInput = document.querySelector(
+        '[aria-label="New task"]',
+      ) as HTMLInputElement | null;
+      if (taskInput) {
+        taskInput.value = taskInput.value + event.key;
+        taskInput.dispatchEvent(new Event("input", { bubbles: true }));
+        taskInput.focus();
+      }
+    }
   };
 
   const handleDelete = (): void => {

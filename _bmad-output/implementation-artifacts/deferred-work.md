@@ -159,6 +159,17 @@
 - **[optional]** E2E RetryAction test: `page.unroute("**/api/tasks")` is called after asserting the Retry button is visible but without awaiting network idle or animation settle. Minor timing assumption; low-risk today.
 - **[optional]** No unit test asserting `event.preventDefault()` was called for `i` and `Escape` shortcuts in `handleRowKeyDown`. The Space handler has an explicit `preventDefault` spy test. If the `preventDefault` call is removed in a future refactor, the only failing signal would be the E2E test.
 
+## Deferred from: code review of 4-4-typing-anywhere-captures (2026-05-01)
+
+- **[optional]** `e2e/keyboard.spec.ts` — E2e tab order assumption fragility: tests press Tab from TaskInput assuming it lands on the first row. Pre-existing pattern shared by all keyboard E2E stories; no new risk introduced.
+- **[optional]** `e2e/keyboard.spec.ts` — "existing value" test fragility: `fill("draft")` + Tab to row + press `"a"` assumes Tab does not clear TaskInput value. Tests pass today; latent risk if TaskInput ever gains a Tab key handler.
+- **[optional]** `apps/web/src/components/TaskRow.test.tsx` — `injectFakeInput` called per-test rather than in `beforeEach`. Style inconsistency with surrounding describe blocks; matches spec-specified pattern.
+- **[optional]** `apps/web/src/components/UndoSnackbar.test.tsx` — Two new typing-anywhere tests create `fakeInput` inline inside the `it` body. If the outer `describe` block's `beforeEach` also injects a fake input, two elements with the same `aria-label` exist simultaneously; `querySelector` returns the first, potentially breaking the test's intent. Tests pass in practice; verify outer setup does not inject a duplicate.
+- **[optional]** `apps/web/src/components/TaskRow.tsx`, `UndoSnackbar.tsx` — `if (taskInput)` null guard for absent `[aria-label="New task"]` element is untested. Silent no-op if the element is ever removed or renamed; add test when a conditional-render story is added.
+- **[optional]** `event.key.length === 1` — known limitation: multi-codepoint emoji have `event.key.length > 1` and are excluded. Documented design tradeoff in Dev Notes; acceptable for current scope.
+- **[optional]** `e2e/keyboard.spec.ts` — No E2e test exercises Ctrl+a / Meta+a from the UndoSnackbar Undo button. Modifier exclusion is E2e-tested for the row path only; Undo button path tested only at unit level.
+- **[optional]** `apps/web/src/components/TaskRow.test.tsx` — No unit test inside `describe("TaskRow typing-anywhere-captures")` explicitly asserts that `i` pressed on `<li>` does NOT append. The `i` exclusion is validated indirectly by the adjacent `Escape and i shortcut` describe block.
+
 ## Deferred from: code review of 4-1-arrow-up-down-j-k-row-navigation (2026-05-01)
 
 - **[pre-epic-4]** `apps/web/src/components/TaskRow.tsx:36-51` — Story 4.4 typing-anywhere forward-compat hazard: if Story 4.4 adds a document-level keydown listener, its precedence vs. the row-level `j`/`k` handlers is unspecified. The epic spec excludes `j`/`k` from typing-anywhere-captures, but no integration contract or ordering guard exists today. Story 4.4 must define the precedence explicitly.

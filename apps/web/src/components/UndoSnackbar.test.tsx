@@ -114,4 +114,35 @@ describe("UndoSnackbar keyboard shortcuts", () => {
     fireEvent.keyDown(undoButton, { key: "i" });
     expect(document.activeElement).toBe(fakeInput);
   });
+
+  it("printable char on Undo button appends to TaskInput and focuses it", () => {
+    const task = makeTask();
+    __deleteUndoMutators.setEntry(task.id, { task, index: 0, deletedAt: 1_700_000_000_001 });
+    const el = document.createElement("input");
+    el.setAttribute("aria-label", "New task");
+    document.body.appendChild(el);
+    fakeInput = el;
+
+    const { getByRole } = renderSnackbar();
+    const undoButton = getByRole("button", { name: "Undo" });
+    undoButton.focus();
+    fireEvent.keyDown(undoButton, { key: "x" });
+    expect(document.activeElement).toBe(fakeInput);
+    expect(fakeInput.value).toBe("x");
+  });
+
+  it("Space on Undo button does NOT trigger typing-anywhere", () => {
+    const task = makeTask();
+    __deleteUndoMutators.setEntry(task.id, { task, index: 0, deletedAt: 1_700_000_000_001 });
+    const el = document.createElement("input");
+    el.setAttribute("aria-label", "New task");
+    document.body.appendChild(el);
+    fakeInput = el;
+
+    const { getByRole } = renderSnackbar();
+    const undoButton = getByRole("button", { name: "Undo" });
+    undoButton.focus();
+    fireEvent.keyDown(undoButton, { key: " " });
+    expect(fakeInput.value).toBe("");
+  });
 });

@@ -608,3 +608,98 @@ describe("TaskRow Escape and i shortcut", () => {
     expect(document.activeElement).toBe(fakeTaskInput);
   });
 });
+
+describe("TaskRow typing-anywhere-captures", () => {
+  let fakeInput: HTMLInputElement | null = null;
+
+  afterEach(() => {
+    fakeInput?.remove();
+    fakeInput = null;
+    cleanup();
+  });
+
+  const injectFakeInput = (): HTMLInputElement => {
+    const el = document.createElement("input");
+    el.setAttribute("aria-label", "New task");
+    el.setAttribute("tabindex", "0");
+    document.body.appendChild(el);
+    fakeInput = el;
+    return el;
+  };
+
+  it("printable char on <li> appends to TaskInput and focuses it", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "a" });
+    expect(document.activeElement).toBe(fakeTaskInput);
+    expect(fakeTaskInput.value).toBe("a");
+  });
+
+  it("printable char on DeleteButton (child) appends to TaskInput via event bubbling", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const deleteButton = container.querySelector('[aria-label="Delete task"]') as HTMLElement;
+    deleteButton.focus();
+    fireEvent.keyDown(deleteButton, { key: "q" });
+    expect(document.activeElement).toBe(fakeTaskInput);
+    expect(fakeTaskInput.value).toBe("q");
+  });
+
+  it("Space on <li> does NOT append to TaskInput", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: " " });
+    expect(fakeTaskInput.value).toBe("");
+  });
+
+  it("j on <li> does NOT append to TaskInput", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "j" });
+    expect(fakeTaskInput.value).toBe("");
+  });
+
+  it("Ctrl+a on <li> does NOT trigger typing-anywhere", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "a", ctrlKey: true });
+    expect(fakeTaskInput.value).toBe("");
+  });
+
+  it("printable char with existing value appends to end", () => {
+    const fakeTaskInput = injectFakeInput();
+    fakeTaskInput.value = "hello";
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "!" });
+    expect(fakeTaskInput.value).toBe("hello!");
+  });
+
+  it("k on <li> does NOT append to TaskInput", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "k" });
+    expect(fakeTaskInput.value).toBe("");
+  });
+
+  it("Shift+letter on <li> appends uppercase char (Shift alone is not excluded)", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "A", shiftKey: true });
+    expect(document.activeElement).toBe(fakeTaskInput);
+    expect(fakeTaskInput.value).toBe("A");
+  });
+});

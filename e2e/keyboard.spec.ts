@@ -639,6 +639,109 @@ test.describe("escape and i shortcut to return focus to TaskInput", () => {
   });
 });
 
+test.describe("typing-anywhere-captures", () => {
+  test("printable char from row container appends to TaskInput and focuses it", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "row-typing-task");
+
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    const row = page.getByRole("listitem").filter({ hasText: "row-typing-task" });
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("q");
+    await expect(page.getByLabel("New task")).toBeFocused();
+    await expect(page.getByLabel("New task")).toHaveValue("q");
+  });
+
+  test("printable char appends to existing TaskInput value", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "existing-value-task");
+
+    await page.getByLabel("New task").fill("draft");
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    const row = page.getByRole("listitem").filter({ hasText: "existing-value-task" });
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("a");
+    await expect(page.getByLabel("New task")).toHaveValue("drafta");
+  });
+
+  test("number char appends to TaskInput", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "number-typing-task");
+
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    const row = page.getByRole("listitem").filter({ hasText: "number-typing-task" });
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("5");
+    await expect(page.getByLabel("New task")).toHaveValue("5");
+  });
+
+  test("Space from row does not append (bound to toggle)", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "space-bound-task");
+
+    const row = page.getByRole("listitem").filter({ hasText: "space-bound-task" });
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("Space");
+    await expect(row.getByRole("checkbox")).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByLabel("New task")).not.toBeFocused();
+  });
+
+  test("j from row does not append (bound to navigation)", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "task-A-nav");
+    await addTask(page, "task-B-nav");
+
+    // newest-first: task-B-nav is row 0, task-A-nav is row 1
+    const rowB = page.getByRole("listitem").filter({ hasText: "task-B-nav" });
+    const rowA = page.getByRole("listitem").filter({ hasText: "task-A-nav" });
+
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    await expect(rowB).toBeFocused();
+
+    await page.keyboard.press("j");
+    await expect(rowA).toBeFocused();
+    await expect(page.getByLabel("New task")).toHaveValue("");
+  });
+
+  test("printable char from UndoSnackbar Undo button appends to TaskInput", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "undo-typing-task");
+
+    const row = page.getByRole("listitem").filter({ hasText: "undo-typing-task" });
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("Delete");
+    await expect(row).not.toBeVisible({ timeout: 2000 });
+
+    await page.getByRole("button", { name: "Undo" }).focus();
+    await expect(page.getByRole("button", { name: "Undo" })).toBeFocused();
+
+    await page.keyboard.press("t");
+    await expect(page.getByLabel("New task")).toBeFocused();
+    await expect(page.getByLabel("New task")).toHaveValue("t");
+  });
+});
+
 test.describe("keyboard toggle — Space on focused row", () => {
   test("Tab into list, Space toggles, focus stays on row", async ({ page }) => {
     await page.goto("/");
