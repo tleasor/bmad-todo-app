@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.db
+*.db-shm
+*.db-wal
+.env
+.lighthouseci/
+playwright-report/
+test-results/
+coverage/
+.DS_Store
+*.log

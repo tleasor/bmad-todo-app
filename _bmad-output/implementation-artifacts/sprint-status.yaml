@@ -1,5 +1,5 @@
 # generated: 2026-04-28
-# last_updated: 2026-04-28
+# last_updated: 2026-04-29
 # project: bmad-todo-app
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-28
-last_updated: 2026-04-28
+last_updated: 2026-04-29
 project: bmad-todo-app
 project_key: NOKEY
 tracking_system: file-system
@@ -43,7 +43,7 @@ story_location: /Users/tommyleasor/bmad-todo-app/_bmad-output/implementation-art
 
 development_status:
   epic-1: in-progress
-  1-1-initialize-monorepo-scaffold-with-toolchain: ready-for-dev
+  1-1-initialize-monorepo-scaffold-with-toolchain: review
   1-2-backend-plumbing-logger-error-envelope-request-middleware-health-endpoint: backlog
   1-3-backend-persistence-tasks-table-forward-only-migrations-repository-skeleton: backlog
   1-4-backend-api-get-post-api-tasks-with-idempotency-and-per-ip-rate-limiting: backlog

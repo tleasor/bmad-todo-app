@@ -1,0 +1,25 @@
+{
+  "name": "@bmad-todo-app/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@elysiajs/eden": "1.4.9",
+    "@tanstack/solid-query": "5.100.6",
+    "solid-js": "1.9.12"
+  },
+  "devDependencies": {
+    "@bmad-todo-app/api": "workspace:*",
+    "@solidjs/testing-library": "0.8.10",
+    "@unocss/preset-mini": "66.6.8",
+    "@unocss/vite": "66.6.8",
+    "unocss": "66.6.8",
+    "vite": "8.0.10",
+    "vite-plugin-solid": "2.11.12"
+  }
+}

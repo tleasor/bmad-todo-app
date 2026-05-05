@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - tasks-data:/data
+    environment:
+      DATABASE_PATH: /data/tasks.db
+      NODE_ENV: production
+
+volumes:
+  tasks-data:
