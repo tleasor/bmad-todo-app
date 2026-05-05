@@ -9,7 +9,12 @@ export function App(): JSX.Element {
   const createTask = useCreateTask();
   const handleUndo = useUndoAll();
 
-  const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
+  const isMac =
+    typeof navigator !== "undefined" &&
+    /mac/i.test(
+      (navigator as Navigator & { userAgentData?: { platform: string } }).userAgentData?.platform ??
+        navigator.platform,
+    );
 
   const handleKeyDown = (e: KeyboardEvent): void => {
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === "z") {

@@ -43,7 +43,12 @@ const pendingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const pendingToggleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let undoCollapseTimer: ReturnType<typeof setTimeout> | undefined;
 
-let isMac: boolean = typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
+let isMac: boolean =
+  typeof navigator !== "undefined" &&
+  /mac/i.test(
+    (navigator as Navigator & { userAgentData?: { platform: string } }).userAgentData?.platform ??
+      navigator.platform,
+  );
 
 let firstDeleteAnnouncementSent = false;
 
