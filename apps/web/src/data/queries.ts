@@ -13,6 +13,7 @@ import {
   RETRY_JITTER_MAX_MS,
   RETRY_MAX_DELAY_MS,
   SYNC_PENDING_DELAY_MS,
+  UNDO_WINDOW_MS,
 } from "../constants";
 import {
   LIVE_REGION_RETRY_EXHAUSTED,
@@ -21,16 +22,26 @@ import {
   LIVE_REGION_TASK_DELETED,
   LIVE_REGION_TASK_DELETED_UNDO_MAC,
   LIVE_REGION_TASK_DELETED_UNDO_OTHER,
+  LIVE_REGION_TASK_RESTORED,
+  liveRegionNTasksDeleted,
 } from "./announcements";
 import { TasksApiError, tasksApi, type Task, type TasksPostBody } from "./api";
 import { __captureSyncMutators, __captureSyncStorePeek } from "./captureSyncStore";
+import {
+  __deleteUndoMutators,
+  deleteUndoStoreCount,
+  deleteUndoStoreEntries,
+  type DeleteUndoEntry,
+} from "./deleteUndoStore";
 import { __toggleSyncMutators, __toggleSyncStorePeek } from "./toggleSyncStore";
 import { tasksQueryKey } from "./keys";
 
 type CreateTaskContext = { previous: Task[] };
+type DeleteContext = { deletedTask: Task | undefined; index: number };
 
 const pendingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const pendingToggleTimers = new Map<string, ReturnType<typeof setTimeout>>();
+let undoCollapseTimer: ReturnType<typeof setTimeout> | undefined;
 
 let isMac: boolean = typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
 
@@ -47,6 +58,11 @@ export const __setIsMacForTests = (val: boolean): void => {
 export const __clearTogglePendingTimersForTests = (): void => {
   for (const timer of pendingToggleTimers.values()) clearTimeout(timer);
   pendingToggleTimers.clear();
+};
+
+export const __clearUndoCollapseTimerForTests = (): void => {
+  if (undoCollapseTimer !== undefined) clearTimeout(undoCollapseTimer);
+  undoCollapseTimer = undefined;
 };
 
 const clearTogglePendingTimer = (id: string): void => {
@@ -220,25 +236,110 @@ export const useCreateTask = (): UseMutationResult<
   return observer;
 };
 
-export const useDeleteTask = (): UseMutationResult<void, Error, string, void> => {
+export const useDeleteTask = (): UseMutationResult<void, Error, string, DeleteContext> => {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, string, void>(() => ({
+  return useMutation<void, Error, string, DeleteContext>(() => ({
     mutationKey: ["tasks", "delete"],
     mutationFn: (id: string) => tasksApi.delete(id),
     retry: computeRetryDecision,
     retryDelay: computeRetryDelay,
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: tasksQueryKey });
-      queryClient.setQueryData<Task[]>(tasksQueryKey, (prev) => prev?.filter((t) => t.id !== id));
+      const prev = queryClient.getQueryData<Task[]>(tasksQueryKey) ?? [];
+      const index = prev.findIndex((t) => t.id === id);
+      const safeIndex = Math.max(0, index);
+      const deletedTask = prev[index];
+      queryClient.setQueryData<Task[]>(tasksQueryKey, (p) => p?.filter((t) => t.id !== id));
       if (!firstDeleteAnnouncementSent) {
         firstDeleteAnnouncementSent = true;
         announce(isMac ? LIVE_REGION_TASK_DELETED_UNDO_MAC : LIVE_REGION_TASK_DELETED_UNDO_OTHER);
       } else {
         announce(LIVE_REGION_TASK_DELETED);
       }
+      return { deletedTask, index: safeIndex };
     },
+    onSuccess: (_data, input, context) => {
+      if (context?.deletedTask) {
+        const { deletedTask, index } = context;
+        __deleteUndoMutators.setEntry(input, { task: deletedTask, index, deletedAt: Date.now() });
+      }
+      if (undoCollapseTimer !== undefined) clearTimeout(undoCollapseTimer);
+      undoCollapseTimer = setTimeout(() => {
+        __deleteUndoMutators.clearAll();
+        firstDeleteAnnouncementSent = false;
+        undoCollapseTimer = undefined;
+      }, UNDO_WINDOW_MS);
+      const count = deleteUndoStoreCount();
+      if (count > 1) {
+        announce(liveRegionNTasksDeleted(count));
+      }
+    },
+    onError: (_error, _input, context) => {
+      if (context?.deletedTask) {
+        const { deletedTask, index } = context;
+        queryClient.setQueryData<Task[]>(tasksQueryKey, (prev) => {
+          if (!prev) return prev;
+          const list = [...prev];
+          list.splice(index, 0, deletedTask);
+          return list;
+        });
+      }
+    },
+  }));
+};
+
+export const useUndoAll = (): (() => void) => {
+  const queryClient = useQueryClient();
+  const undoMutation = useMutation<Task, Error, TasksPostBody, void>(() => ({
+    mutationKey: ["tasks", "undo"],
+    mutationFn: (input) => tasksApi.create(input),
     onSuccess: () => undefined,
-    // No rollback — FR27 / UX-DR16: row stays optimistically removed; refetch reconciles.
     onError: () => undefined,
   }));
+
+  return () => {
+    // Sort ascending by index, break ties by deletion time (earliest first).
+    // This ensures correct splice positions when multiple items share the same
+    // captured index (which happens when deletions compound on the cached list).
+    const entriesToRestore = Object.entries(deleteUndoStoreEntries)
+      .filter((entry): entry is [string, DeleteUndoEntry] => entry[1] !== undefined)
+      .map(([, e]) => e)
+      .sort((a, b) => a.index - b.index || a.deletedAt - b.deletedAt);
+
+    if (entriesToRestore.length === 0) return;
+
+    if (undoCollapseTimer !== undefined) {
+      clearTimeout(undoCollapseTimer);
+      undoCollapseTimer = undefined;
+    }
+
+    __deleteUndoMutators.clearAll();
+
+    // Splice ascending with offset i to account for each prior insertion shifting indices.
+    queryClient.setQueryData<Task[]>(tasksQueryKey, (prev) => {
+      if (!prev) return prev;
+      const list = [...prev];
+      entriesToRestore.forEach((entry, i) => {
+        list.splice(entry.index + i, 0, entry.task);
+      });
+      return list;
+    });
+
+    announce(LIVE_REGION_TASK_RESTORED);
+
+    // Focus the task at the lowest original index (first in ascending sort).
+    setTimeout(() => {
+      const id = entriesToRestore[0].task.id;
+      (document.querySelector(`[data-task-id="${id}"]`) as HTMLElement | null)?.focus();
+    }, 0);
+
+    // Fire all restore API calls concurrently; invalidate once after all settle.
+    void Promise.allSettled(
+      entriesToRestore.map((entry) =>
+        undoMutation.mutateAsync({ id: entry.task.id, text: entry.task.text }),
+      ),
+    ).then(() => {
+      void queryClient.invalidateQueries({ queryKey: tasksQueryKey });
+    });
+  };
 };

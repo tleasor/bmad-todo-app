@@ -21,6 +21,7 @@ import {
   LIVE_REGION_TASK_DELETED,
   LIVE_REGION_TASK_DELETED_UNDO_MAC,
   LIVE_REGION_TASK_DELETED_UNDO_OTHER,
+  liveRegionNTasksDeleted,
 } from "./announcements";
 import {
   _tasksApiSeams,
@@ -33,9 +34,11 @@ import {
 import { __captureSyncStorePeek, __resetCaptureSyncStoreForTests } from "./captureSyncStore";
 import { __resetToggleSyncStoreForTests, __toggleSyncStorePeek } from "./toggleSyncStore";
 import { tasksQueryKey } from "./keys";
+import { __resetDeleteUndoStoreForTests, __deleteUndoMutators } from "./deleteUndoStore";
 import {
   __clearPendingTimersForTests,
   __clearTogglePendingTimersForTests,
+  __clearUndoCollapseTimerForTests,
   __resetFirstDeleteAnnouncementForTests,
   __setIsMacForTests,
   computeRetryDecision,
@@ -846,6 +849,8 @@ describe("useDeleteTask announcement", () => {
     originalDeleteFetch = _tasksApiSeams.deleteFetch;
     __resetLiveRegionForTests();
     __resetFirstDeleteAnnouncementForTests();
+    __resetDeleteUndoStoreForTests();
+    __clearUndoCollapseTimerForTests();
     __setIsMacForTests(false);
   });
 
@@ -853,6 +858,8 @@ describe("useDeleteTask announcement", () => {
     _tasksApiSeams.deleteFetch = originalDeleteFetch;
     __resetLiveRegionForTests();
     __resetFirstDeleteAnnouncementForTests();
+    __resetDeleteUndoStoreForTests();
+    __clearUndoCollapseTimerForTests();
     __setIsMacForTests(false);
   });
 
@@ -929,5 +936,96 @@ describe("useDeleteTask announcement", () => {
     const history = __getLiveRegionHistoryForTests();
     expect(history[0]).toBe(LIVE_REGION_TASK_DELETED_UNDO_OTHER);
     expect(history[1]).toBe(LIVE_REGION_TASK_DELETED);
+  });
+
+  it("onMutate stores DeleteContext snapshot (deletedTask + index)", async () => {
+    const taskId1 = "0193f000-0000-7000-8000-dd00000000a0";
+    const taskId2 = "0193f000-0000-7000-8000-dd00000000a1";
+    const task1 = mockTask({ id: taskId1, text: "first" });
+    const task2 = mockTask({ id: taskId2, text: "second" });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [task1, task2]);
+    // Resolve immediately so onSuccess fires and writes the store
+    _tasksApiSeams.deleteFetch = mock(
+      (): Promise<TasksDeleteResponse> => Promise.resolve({ data: null, error: null }),
+    );
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate(taskId1);
+
+    await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
+
+    // The store entry should have the correct task and original index
+    const { deleteUndoStorePeek } = await import("./deleteUndoStore");
+    const entry = deleteUndoStorePeek(taskId1);
+    expect(entry).toBeDefined();
+    expect(entry?.task).toEqual(task1);
+    expect(entry?.index).toBe(0);
+  });
+
+  it("onSuccess writes to deleteUndoStore", async () => {
+    const taskId = "0193f000-0000-7000-8000-dd00000000b0";
+    const task = mockTask({ id: taskId, text: "undo me" });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [task]);
+    _tasksApiSeams.deleteFetch = mock(
+      (): Promise<TasksDeleteResponse> => Promise.resolve({ data: null, error: null }),
+    );
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate(taskId);
+    await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
+
+    const { deleteUndoStorePeek } = await import("./deleteUndoStore");
+    const entry = deleteUndoStorePeek(taskId);
+    expect(entry).toBeDefined();
+    expect(entry?.task.id).toBe(taskId);
+  });
+
+  it("onError rolls back optimistic removal at original index", async () => {
+    const taskId = "0193f000-0000-7000-8000-dd00000000c0";
+    const otherTaskId = "0193f000-0000-7000-8000-dd00000000c1";
+    const task = mockTask({ id: taskId, text: "rollback me" });
+    const other = mockTask({ id: otherTaskId, text: "stays" });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [task, other]);
+    // Status 400 is fail-fast in the retry policy (no retries), avoiding timeout
+    _tasksApiSeams.deleteFetch = mock(
+      (): Promise<TasksDeleteResponse> =>
+        Promise.reject(new TasksApiError({ status: 400, message: "bad_request" })),
+    );
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate(taskId);
+    await waitFor(() => (probe.mutation().isError ? true : undefined));
+
+    const cached = client.getQueryData<Task[]>(tasksQueryKey);
+    expect(cached).toHaveLength(2);
+    expect(cached?.[0]?.id).toBe(taskId);
+    expect(cached?.[1]?.id).toBe(otherTaskId);
+  });
+
+  it("onSuccess: announces N tasks deleted when count > 1", async () => {
+    const taskId1 = "0193f000-0000-7000-8000-dd00000000d0";
+    const taskId2 = "0193f000-0000-7000-8000-dd00000000d1";
+    const task1 = mockTask({ id: taskId1, text: "first" });
+    const task2 = mockTask({ id: taskId2, text: "second" });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [task1, task2]);
+
+    // Pre-write one entry to store so the second delete sees count > 1
+    __deleteUndoMutators.setEntry(taskId1, { task: task1, index: 0, deletedAt: 1_700_000_000_001 });
+
+    _tasksApiSeams.deleteFetch = mock(
+      (): Promise<TasksDeleteResponse> => Promise.resolve({ data: null, error: null }),
+    );
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate(taskId2);
+    await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
+    await waitDrain();
+
+    const history = __getLiveRegionHistoryForTests();
+    expect(history).toContain(liveRegionNTasksDeleted(2));
   });
 });

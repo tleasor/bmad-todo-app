@@ -127,6 +127,12 @@
 - **[optional]** `apps/web/src/components/TaskRow.tsx:38` — Double-delete race: no `isLeaving()` guard before calling `handleDelete()` in the new keyboard handler. Pre-existing behavior (`handleDelete` unchanged from Story 3.2); `animationend` fires once per animation so actual double-mutation risk is low. Add `if (isLeaving()) return;` guard if future testing reveals an actual issue.
 - **[optional]** `apps/web/src/data/queries.ts:37` — `firstDeleteAnnouncementSent` is not reset between E2E test sessions (page reload would reset it, but the flag lives in JS module state). No E2E test verifies announcement text, so this has no current test impact. By design: the flag is session-scoped per AC4/AC5.
 
+## Deferred from: code review of 3-4-undosnackbar-with-cmd-ctrl-z-concurrent-delete-collapsing-restore-at-original-position (2026-05-01)
+
+- **[optional]** `apps/web/src/data/queries.ts` — Timer expiry + slow DELETE: if the server-side delete takes >5 s, `onSuccess` fires after `undoCollapseTimer` has already called `clearAll()` and the snackbar has dismissed. The new `setEntry` call re-opens the store and the snackbar unexpectedly reappears for an old deletion. Requires tracking whether the window has expired before writing to the store; a clean fix would need a "window-open" flag or a deletion timestamp comparison.
+- **[optional]** `apps/web/src/data/queries.ts:46` — `navigator.platform` is deprecated (pre-existing pattern from Story 3.3, already deferred in earlier code review of Story 3.3). No new exposure from this story.
+- **[optional]** `e2e/manage.spec.ts` — `page.waitForTimeout(6000)` in the "5s window expires" E2E test adds at least 6 s to every CI run. Could be addressed by making `UNDO_WINDOW_MS` overridable via env var in test mode, or using Playwright's clock API to fake timers.
+
 ## Deferred from: code review of 3-1-backend-delete-api-tasks-id-idempotent (2026-05-01)
 
 - **[optional]** `e2e/capture.spec.ts` — E2E `beforeEach` fixture reset (`DELETE /api/tasks`) is awaited without asserting the response status. If the endpoint returns non-204 (e.g. wrong environment, server error), tests continue with dirty state and produce confusing, non-deterministic failures. Fix: assert `res.status() === 204` in the beforeEach.
