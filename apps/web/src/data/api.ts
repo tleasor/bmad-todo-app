@@ -76,13 +76,16 @@ const readEnvelopeMessage = (value: unknown): string | undefined =>
 const readEnvelopeCode = (value: unknown): string | undefined =>
   (value as { error?: { code?: string } } | undefined)?.error?.code;
 
-export const tasksApi = {
-  // `fetch` / `createFetch` are the raw Eden seams — exposed as writable
-  // properties so tests can stub the envelope shape and exercise the
-  // envelope-parsing logic in `list` / `create` for real.
+// Dedicated seam object for testing: swap individual fetchers in beforeEach/afterEach
+// without mutating the public tasksApi. Production code must not write to this object.
+export const _tasksApiSeams = {
   fetch: tasksGet,
+  createFetch: tasksPost,
+};
+
+export const tasksApi = {
   list: async (): Promise<Task[]> => {
-    const { data, error } = await tasksApi.fetch();
+    const { data, error } = await _tasksApiSeams.fetch();
     if (error) {
       const message =
         readEnvelopeMessage(error.value) ?? `tasks fetch failed: HTTP ${error.status}`;
@@ -95,11 +98,13 @@ export const tasksApi = {
     if (data === null) {
       throw new Error("tasks fetch returned null data");
     }
+    if (!Array.isArray(data)) {
+      throw new Error("tasks fetch: response body is not an array");
+    }
     return data;
   },
-  createFetch: tasksPost,
   create: async (input: TasksPostBody): Promise<Task> => {
-    const { data, error, response } = await tasksApi.createFetch(input);
+    const { data, error, response } = await _tasksApiSeams.createFetch(input);
     if (error) {
       const message =
         readEnvelopeMessage(error.value) ?? `tasks create failed: HTTP ${error.status}`;
@@ -116,6 +121,9 @@ export const tasksApi = {
     }
     if (data === null) {
       throw new Error("tasks create returned null data");
+    }
+    if (typeof data.id !== "string" || typeof data.text !== "string") {
+      throw new Error("tasks create: response body is not a valid Task");
     }
     return data;
   },

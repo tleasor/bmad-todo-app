@@ -9,17 +9,24 @@ import { LIVE_REGION_DRAIN_INTERVAL_MS, LIVE_REGION_HISTORY_MAX } from "../const
 // politely-live AT polling registers the change.
 const queue: string[] = [];
 const history: string[] = [];
-let mounted = false;
+// Refcount instead of boolean: HMR double-mount unmounts one instance without
+// silencing the survivor.
+let mountCount = 0;
 let draining = false;
+// Generation token: incremented by __resetLiveRegionForTests so stale
+// microtasks and setTimeout callbacks from a previous test cannot write
+// into the next test's signal or history.
+let generation = 0;
 const [message, setMessage] = createSignal("");
 
-const drain = (): void => {
-  if (draining || !mounted) return;
+const drain = (gen: number): void => {
+  if (gen !== generation || draining || mountCount === 0) return;
   const next = queue.shift();
   if (next === undefined) return;
   draining = true;
   setMessage("");
   queueMicrotask(() => {
+    if (gen !== generation) return;
     setMessage(next);
     history.push(next);
     // Cap history growth — long-lived sessions would otherwise retain every
@@ -28,24 +35,25 @@ const drain = (): void => {
       history.splice(0, history.length - LIVE_REGION_HISTORY_MAX);
     }
     setTimeout(() => {
+      if (gen !== generation) return;
       draining = false;
-      drain();
+      drain(gen);
     }, LIVE_REGION_DRAIN_INTERVAL_MS);
   });
 };
 
 export const announce = (next: string): void => {
   queue.push(next);
-  drain();
+  drain(generation);
 };
 
 export function LiveRegion(): JSX.Element {
   onMount(() => {
-    mounted = true;
-    drain();
+    mountCount += 1;
+    drain(generation);
   });
   onCleanup(() => {
-    mounted = false;
+    mountCount = Math.max(0, mountCount - 1);
   });
   return (
     <div class="sr-only" aria-live="polite" aria-atomic="true">
@@ -55,9 +63,10 @@ export function LiveRegion(): JSX.Element {
 }
 
 export const __resetLiveRegionForTests = (): void => {
+  generation += 1;
   queue.length = 0;
   history.length = 0;
-  mounted = false;
+  mountCount = 0;
   draining = false;
   setMessage("");
 };

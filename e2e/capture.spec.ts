@@ -10,9 +10,7 @@ const waitForListSettled = async (page: Page): Promise<void> => {
   // after measurement and inflate the post-count past preCount + 1.
   await expect(async () => {
     const itemCount = await page.getByRole("listitem").count();
-    const emptyVisible = await page
-      .getByText("No tasks yet. Start by typing above.")
-      .isVisible();
+    const emptyVisible = await page.getByText("No tasks yet. Start by typing above.").isVisible();
     expect(itemCount > 0 || emptyVisible).toBe(true);
   }).toPass({ timeout: 5000 });
 };

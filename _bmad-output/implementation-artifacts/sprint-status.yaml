@@ -54,7 +54,7 @@ development_status:
   1-9-sync-pending-indicator-and-retry-exhausted-state-for-capture: done
   1-10-list-level-fetch-error-state-and-reconnection-recovery: done
   1-11-end-to-end-single-service-container-deployment: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   epic-2: backlog
   2-1-backend-patch-api-tasks-id-for-completion-toggle: backlog

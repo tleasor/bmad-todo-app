@@ -19,7 +19,7 @@ import {
   LIVE_REGION_SAVED,
   LIVE_REGION_SAVING,
 } from "./announcements";
-import { TasksApiError, tasksApi, type Task, type TasksGetResponse } from "./api";
+import { _tasksApiSeams, TasksApiError, tasksApi, type Task, type TasksGetResponse } from "./api";
 import { __captureSyncStorePeek, __resetCaptureSyncStoreForTests } from "./captureSyncStore";
 import { tasksQueryKey } from "./keys";
 import {
@@ -78,14 +78,14 @@ const waitFor = async <T,>(check: () => T | undefined, timeoutMs = 1000): Promis
 };
 
 describe("useTasks", () => {
-  let originalFetch: typeof tasksApi.fetch;
+  let originalFetch: typeof _tasksApiSeams.fetch;
 
   beforeEach(() => {
-    originalFetch = tasksApi.fetch;
+    originalFetch = _tasksApiSeams.fetch;
   });
 
   afterEach(() => {
-    tasksApi.fetch = originalFetch;
+    _tasksApiSeams.fetch = originalFetch;
     // The reconnect test toggles onlineManager.setOnline(false). If that test
     // throws between the offline call and its final setOnline(true), the
     // singleton would remain offline and pause every subsequent query. Always
@@ -94,7 +94,7 @@ describe("useTasks", () => {
   });
 
   it("registers the architecture-locked tasks-query options against the queryClient cache", async () => {
-    tasksApi.fetch = mock(
+    _tasksApiSeams.fetch = mock(
       (): Promise<TasksGetResponse> => Promise.resolve({ data: [], error: null }),
     );
     const client = makeClient();
@@ -126,7 +126,7 @@ describe("useTasks", () => {
       mockTask({ id: "0193f000-0000-7000-8000-000000000002", text: "two" }),
       mockTask({ id: "0193f000-0000-7000-8000-000000000001", text: "one" }),
     ];
-    tasksApi.fetch = mock(
+    _tasksApiSeams.fetch = mock(
       (): Promise<TasksGetResponse> => Promise.resolve({ data: tasks, error: null }),
     );
     const client = makeClient();
@@ -149,7 +149,7 @@ describe("useTasks", () => {
   });
 
   it("surfaces the envelope error.message via TanStack's error state on a non-null Eden error envelope", async () => {
-    tasksApi.fetch = mock(
+    _tasksApiSeams.fetch = mock(
       (): Promise<TasksGetResponse> =>
         Promise.resolve({
           data: null,
@@ -190,7 +190,7 @@ describe("useTasks", () => {
     // setOnline API mirrors the architecture's reconnect wire faithfully and
     // is the AC-documented fallback (see story §Task 4 fallback note).
     let calls = 0;
-    tasksApi.fetch = mock((): Promise<TasksGetResponse> => {
+    _tasksApiSeams.fetch = mock((): Promise<TasksGetResponse> => {
       calls++;
       if (calls <= 3) {
         return Promise.reject(new TasksApiError({ status: 500, message: "boom" }));
@@ -240,11 +240,11 @@ describe("useTasks", () => {
 
 describe("useCreateTask", () => {
   let originalCreate: typeof tasksApi.create;
-  let originalCreateFetch: typeof tasksApi.createFetch;
+  let originalCreateFetch: typeof _tasksApiSeams.createFetch;
 
   beforeEach(() => {
     originalCreate = tasksApi.create;
-    originalCreateFetch = tasksApi.createFetch;
+    originalCreateFetch = _tasksApiSeams.createFetch;
     __clearPendingTimersForTests();
     __resetLiveRegionForTests();
     __resetCaptureSyncStoreForTests();
@@ -252,7 +252,7 @@ describe("useCreateTask", () => {
 
   afterEach(() => {
     tasksApi.create = originalCreate;
-    tasksApi.createFetch = originalCreateFetch;
+    _tasksApiSeams.createFetch = originalCreateFetch;
     __clearPendingTimersForTests();
     __resetLiveRegionForTests();
     __resetCaptureSyncStoreForTests();
@@ -454,11 +454,11 @@ describe("useCreateTask retry policy", () => {
 
 describe("useCreateTask sync state", () => {
   let originalCreate: typeof tasksApi.create;
-  let originalCreateFetch: typeof tasksApi.createFetch;
+  let originalCreateFetch: typeof _tasksApiSeams.createFetch;
 
   beforeEach(() => {
     originalCreate = tasksApi.create;
-    originalCreateFetch = tasksApi.createFetch;
+    originalCreateFetch = _tasksApiSeams.createFetch;
     __clearPendingTimersForTests();
     __resetLiveRegionForTests();
     __resetCaptureSyncStoreForTests();
@@ -466,7 +466,7 @@ describe("useCreateTask sync state", () => {
 
   afterEach(() => {
     tasksApi.create = originalCreate;
-    tasksApi.createFetch = originalCreateFetch;
+    _tasksApiSeams.createFetch = originalCreateFetch;
     __clearPendingTimersForTests();
     __resetLiveRegionForTests();
     __resetCaptureSyncStoreForTests();

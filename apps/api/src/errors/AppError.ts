@@ -5,8 +5,8 @@ export class AppError extends Error {
   public readonly code: ErrorCode;
   public readonly details: unknown;
 
-  public constructor(code: ErrorCode, message: string, details?: unknown) {
-    super(message);
+  public constructor(code: ErrorCode, message: string, details?: unknown, cause?: unknown) {
+    super(message, cause !== undefined ? { cause } : undefined);
     this.code = code;
     this.details = details;
   }

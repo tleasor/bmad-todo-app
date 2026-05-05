@@ -13,9 +13,7 @@ const waitForInitialTasksLoad = async (page: Page): Promise<void> => {
   await expect(page.locator("[data-testid='skeleton-row']")).toHaveCount(0, { timeout: 5000 });
   await expect(async () => {
     const itemCount = await page.getByRole("listitem").count();
-    const emptyVisible = await page
-      .getByText("No tasks yet. Start by typing above.")
-      .isVisible();
+    const emptyVisible = await page.getByText("No tasks yet. Start by typing above.").isVisible();
     expect(itemCount > 0 || emptyVisible).toBe(true);
   }).toPass({ timeout: 5000 });
 };

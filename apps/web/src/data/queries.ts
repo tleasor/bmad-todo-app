@@ -106,7 +106,6 @@ export const useCreateTask = (): UseMutationResult<
         return [optimistic, ...list];
       });
       const retry = (): void => {
-        observer.reset();
         observer.mutate(input);
       };
       clearPendingTimer(input.id);
@@ -126,7 +125,6 @@ export const useCreateTask = (): UseMutationResult<
     onError: (_error, input) => {
       clearPendingTimer(input.id);
       const retry = (): void => {
-        observer.reset();
         observer.mutate(input);
       };
       __captureSyncMutators.markExhausted(input.id, retry);
