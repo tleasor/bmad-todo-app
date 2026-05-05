@@ -1,6 +1,10 @@
 const PORT_RAW = Bun.env.PORT;
-const port = PORT_RAW ? Number.parseInt(PORT_RAW, 10) : 3000;
-if (Number.isNaN(port) || port <= 0) {
+const port = PORT_RAW
+  ? /^\d+$/.test(PORT_RAW)
+    ? Number.parseInt(PORT_RAW, 10)
+    : Number.NaN
+  : 3000;
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error(`Invalid PORT: ${PORT_RAW}`);
 }
 

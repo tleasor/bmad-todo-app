@@ -1,6 +1,6 @@
 # Story 1.1: Initialize Monorepo Scaffold with Toolchain
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -156,6 +156,36 @@ so that I can clone, run `bun install && bun run dev`, and have a hello-world fr
 
 - [x] **Task 10 — Commit, verify clone-and-run** (AC: #10)
   - [x] In a fresh directory, clone the repo and execute the README path end-to-end. Time it; confirm ≤ 30 min including Playwright browser install.
+
+### Review Findings
+
+- [x] [Review][Patch] Typecheck gate is currently a no-op and masks app TypeScript errors [package.json:11]
+- [x] [Review][Patch] Production `/api` falls through to the SPA instead of returning an API 404 [apps/api/src/index.ts:19]
+- [x] [Review][Patch] Release gate never runs Lighthouse mobile [lighthouserc.json:8]
+- [x] [Review][Patch] `PORT` validation accepts partial and out-of-range values [apps/api/src/env.ts:2]
+- [x] [Review][Patch] Dev orchestration does not fail fast when one subprocess exits [package.json:6]
+- [x] [Review][Patch] Startup JSON log is documented as stdout but emitted with `console.warn` [apps/api/src/index.ts:38]
+
+#### Round 2 (2026-04-30)
+
+- [x] [Review][Defer] Drop `bun-types` from `apps/web` to preserve the architectural boundary [apps/web/package.json:21, apps/web/tsconfig.json:7] — attempted and reverted: `tsgo -b --noEmit` resolves `bun-types` for `apps/api` as `primary: false` and the global `Bun` namespace fails to load when only `apps/api` declares the type. Workaround keeps `bun-types` in both tsconfigs' `types` arrays. Architectural concern documented but defer the boundary fix until tsgo resolution improves or we switch to `@types/bun`.
+- [x] [Review][Patch] Add Change Log entry justifying `scripts/dev.ts` as Bun-native fail-fast orchestrator [Change Log] — clarifies the swap from `& wait` to a TS script, addresses Round 1 Review finding #5, no new dep added so NFR-M5 preserved.
+- [x] [Review][Dismiss] `/api` GET-only — Elysia's default 404 is acceptable for the scaffold; verb-handling pattern revisited in Story 1.4 when real routes land.
+- [x] [Review][Patch] `PORT` validation now accepts hex (`0x1F40` → 8000), scientific (`3e3` → 3000), whitespace (` 3000 `), and signed (`+3000`) inputs [apps/api/src/env.ts:1-2] — switch to a strict `^\d+$` regex check before `Number.parseInt` to match the prior `parseInt(_, 10)` behavior.
+- [x] [Review][Patch] `GET /api/` (trailing slash) and `GET //api` fall through to the SPA handler instead of 404 [apps/api/src/index.ts:36] — `/api` exact and `/api/*` patterns leave the trailing-slash form unmatched.
+- [x] [Review][Patch] dev.ts coalesces signal-killed `proc.exited` (null) into `process.exit(0)`, masking a crashed subprocess [scripts/dev.ts:35] — coalesce `code ?? 1` before exiting.
+- [x] [Review][Patch] dev.ts signal handler exits 0 unconditionally [scripts/dev.ts:23] — wrappers see Ctrl-C as success. Exit `128 + signum` (130 SIGINT, 143 SIGTERM).
+- [x] [Review][Patch] dev.ts does not handle SIGHUP [scripts/dev.ts:22] — closing the terminal sends SIGHUP and orphans children. Add SIGHUP to the signal list.
+- [x] [Review][Patch] dev.ts `proc.kill()` sends SIGTERM with no escalation [scripts/dev.ts:14] — a child that ignores SIGTERM blocks shutdown indefinitely. Add a short timeout + `proc.kill("SIGKILL")` fallback.
+- [x] [Review][Patch] dev.ts `Promise.race` returns when the FIRST child exits and immediately `process.exit`s, potentially orphaning the second child [scripts/dev.ts:34-36] — await all exits after `stopAll()` before exiting.
+- [x] [Review][Patch] `scripts/check-coverage.ts` parses ONLY stderr for the coverage summary [scripts/check-coverage.ts:21] — fragile to Bun output-stream changes, locale, and ANSI codes. Search both `stdout` and `stderr`; spawn with `LANG=C`.
+- [x] [Review][Patch] `scripts/check-coverage.ts` accepts `NaN` silently because `NaN < 0.7` is false [scripts/check-coverage.ts:30-31] — gate passes despite no real measurement. Validate `Number.isFinite(funcsPct) && Number.isFinite(linesPct)` and fail otherwise.
+- [x] [Review][Patch] `scripts/check-coverage.ts` uses `console.warn` for user-facing success messages [scripts/check-coverage.ts:33,41] — works around `no-console.log` lint rule but routes success to stderr. Use `process.stdout.write` for consistency with the listening log in `apps/api/src/index.ts`.
+- [x] [Review][Patch] `scripts/check-coverage.ts` buffers all subprocess output before writing it [scripts/check-coverage.ts:8-17] — user sees nothing during the test run and risks OOM on large suites. Stream stdout/stderr through to the parent in real time, capturing in parallel for the regex parse.
+- [x] [Review][Patch] `apps/api/src/index.test.ts` creates `__tmp_dist__` inside `apps/api/src/` [apps/api/src/index.test.ts:5] — pollutes the source tree, races parallel runs, and persists on test crash. Use `os.tmpdir()` + `mkdtempSync` for an OS-managed unique directory.
+- [x] [Review][Defer] `SPA_DIST` resolved at module load relative to `import.meta.dir` [apps/api/src/index.ts:6] — deferred, breaks future `bun build --compile` workflows but not in current scope.
+- [x] [Review][Defer] `process.stdout.write` of the listening line not flushed before potential exit [apps/api/src/index.ts:46] — deferred, theoretical race; lhci's `startServerReadyPattern` is currently working per Change Log evidence.
+- [x] [Review][Defer] `check:release` runs `lhci autorun` twice against the same port 3000 [package.json:11] — deferred, lhci historically cleans up between runs and the gate currently passes; revisit if EADDRINUSE flakes appear.
 
 ## Dev Notes
 
@@ -438,8 +468,12 @@ claude-opus-4-7 (1M context)
 - `lighthouserc.json`
 - `package.json`
 - `playwright.config.ts`
+- `apps/web/vite-env.d.ts`
+- `lighthouserc.desktop.json`
 - `scripts/check-bundle-size.sh`
+- `scripts/check-coverage.ts`
 - `scripts/check-dep-count.sh`
+- `scripts/dev.ts`
 - `tsconfig.base.json`
 - `tsconfig.json`
 
@@ -451,3 +485,8 @@ claude-opus-4-7 (1M context)
 |---|---|---|
 | 2026-04-29 | Initial monorepo scaffold | Story 1.1 — toolchain wired (Bun 1.3.11 + Vite 8 + Solid 1.9 + Elysia 1.4 + UnoCSS 66 + oxlint/oxfmt + tsgo + Playwright + Lighthouse), three check scripts green, single-service Docker container building and serving SPA + `/health`. |
 | 2026-04-29 | Drop `bunx` from `package.json` scripts | `bun run` already prepends `node_modules/.bin/` to PATH, so bare command names resolve to the locked local binary. Removing `bunx` skips the redundant resolver step and makes the intent (use the pinned local copy, never fetch on-the-fly) explicit. README's `bunx playwright install …` kept — that runs before `bun install` is meaningful. |
+| 2026-04-29 | Fix silently-skipped type check | `tsgo --noEmit` against the root `tsconfig.json` (with `"files": []` and references) was a no-op — references are only followed in build mode. Switched to `tsgo -b --noEmit`. This surfaced four real errors that had been hidden: `Bun` global missing in `apps/api`, `import.meta.dir`/`import.meta.env` missing, and the `virtual:uno.css` module declaration missing. Resolved by adding `apps/web/vite-env.d.ts` (`/// <reference types="vite/client" />` + `declare module "virtual:uno.css"`) and updating `apps/web/tsconfig.json` to include `vite/client` + `bun-types` in `types` and `vite-env.d.ts` in `include`. Added `*.tsbuildinfo` to `.gitignore`. |
+| 2026-04-29 | Replace broken Bun coverage threshold with custom enforcer | Bun 1.3.11's `--coverage-threshold` CLI flag and `coverageThreshold` in `bunfig.toml` print the metric but do not fail the run on shortfall (verified against 0.95 vs 69.59% — both exit 0). Replaced with `scripts/check-coverage.ts` which runs `bun test --coverage`, parses the "All files" summary, and exits non-zero if either `% Funcs` or `% Lines` is below 0.70 (NFR-M1). Wired into `check:full` in place of the broken flag. |
+| 2026-04-29 | Refactor SPA handler for testability | Extracted `serveSpa(request, { isDev, spaDist })` from the inline `/*` handler in `apps/api/src/index.ts`. The dev-only branch and a tmpdir-backed production branch (real `index.html` + asset + missing-dist 404) are now both directly testable via `bun:test`, lifting aggregate coverage from 69.59 % lines to 90.75 % (only the entry-point `if (import.meta.main)` listening block remains uncovered — can't be hit through `app.handle()`). |
+| 2026-04-30 | Replace `& wait` shell concurrency with `scripts/dev.ts` | The architecture-recommended `dev` body `bun run --cwd apps/api dev & bun run --cwd apps/web dev & wait` cannot fail-fast — if Vite or Elysia crashes on startup, the surviving process keeps running and the developer sees a half-broken stack. Replaced with a Bun-native TS orchestrator that (a) spawns both children with inherited stdio, (b) `Promise.all`s their exits and propagates the first non-zero code, (c) traps SIGINT/SIGTERM/SIGHUP and shuts down with `128 + signum` exit codes, and (d) escalates to SIGKILL after 5 s if a child ignores SIGTERM. No new dep — preserves NFR-M5. The `concurrently`/`tsx`/`nodemon` anti-pattern targets _adding deps_; a 50-line workspace script is allowed. |
+| 2026-04-30 | Round 2 review patches | Tightened `PORT` validation to a strict `^\d+$` regex (rejects hex, exponent, signed, whitespace forms previously accepted by `Number(...)`); added explicit `/api/` trailing-slash 404 route; rewrote `scripts/check-coverage.ts` to stream subprocess stdout/stderr in real time, search both streams for the summary line, pin `LANG=C`, and validate `Number.isFinite` before threshold comparison; switched script user-facing output from `console.warn` to `process.stdout.write` for clarity; moved the `serveSpa` test fixture from `apps/api/src/__tmp_dist__` to an `os.tmpdir() + mkdtempSync` directory; hardened `scripts/dev.ts` (signal-killed `null` exit code coalesced to 1, SIGHUP added, SIGKILL escalation, all-children await before exit). All check scripts re-verified green (10 tests, coverage 92.86 % funcs / 85.77 % lines, bundle 13 KB gzipped). |

@@ -3,14 +3,14 @@
   "private": true,
   "workspaces": ["apps/*"],
   "scripts": {
-    "dev": "bun run --cwd apps/api dev & bun run --cwd apps/web dev & wait",
+    "dev": "bun scripts/dev.ts",
     "build": "bun run --cwd apps/web build",
     "check": "bun run check:lint && bun run check:format && bun run check:types && bash scripts/check-dep-count.sh",
     "check:lint": "oxlint apps/ scripts/ e2e/ --ignore-pattern '**/dist/**'",
     "check:format": "oxfmt --check apps/ scripts/ e2e/ '!**/dist/**'",
-    "check:types": "tsgo --noEmit",
-    "check:full": "bun run check && bun test apps --coverage --coverage-threshold 70 && bun audit --audit-level=high && bun run build && bash scripts/check-bundle-size.sh",
-    "check:release": "bun run check:full && playwright test && lhci autorun"
+    "check:types": "tsgo -b --noEmit",
+    "check:full": "bun run check && bun scripts/check-coverage.ts && bun audit --audit-level=high && bun run build && bash scripts/check-bundle-size.sh",
+    "check:release": "bun run check:full && playwright test && lhci autorun && lhci autorun --config=lighthouserc.desktop.json"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.11.2",

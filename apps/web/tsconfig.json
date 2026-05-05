@@ -3,7 +3,8 @@
   "compilerOptions": {
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
-    "lib": ["esnext", "dom", "dom.iterable"]
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "types": ["vite/client", "bun-types"]
   },
-  "include": ["src/**/*", "vite.config.ts", "uno.config.ts"]
+  "include": ["src/**/*", "vite.config.ts", "uno.config.ts", "vite-env.d.ts"]
 }
