@@ -2,6 +2,10 @@ import { statSync } from "node:fs";
 import { join, normalize, resolve } from "node:path";
 import { Elysia } from "elysia";
 import { env } from "./env";
+import { logger } from "./log";
+import { requestLogger } from "./middleware/requestLogger";
+import { registerOnError } from "./onError";
+import { healthRoute } from "./routes/health";
 
 const SPA_DIST = resolve(import.meta.dir, "..", "..", "web", "dist");
 
@@ -31,8 +35,10 @@ export const serveSpa = (
   });
 };
 
-export const app = new Elysia()
-  .get("/health", () => ({ status: "ok", uptime: process.uptime() }))
+const baseApp = new Elysia().use(requestLogger()).use(healthRoute);
+registerOnError(baseApp, { isDev: env.IS_DEV });
+
+export const app = baseApp
   .get("/api", () => new Response("Not Found", { status: 404 }))
   .get("/api/", () => new Response("Not Found", { status: 404 }))
   .get("/api/*", () => new Response("Not Found", { status: 404 }))
@@ -42,8 +48,5 @@ export type App = typeof app;
 
 if (import.meta.main) {
   app.listen(env.PORT);
-  // Story 1.2 replaces this with the structured logger.
-  process.stdout.write(
-    `${JSON.stringify({ level: "info", msg: "listening", port: env.PORT, ts: Date.now() })}\n`,
-  );
+  logger.info("listening", { port: env.PORT });
 }

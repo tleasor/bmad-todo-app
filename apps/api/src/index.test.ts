@@ -6,15 +6,7 @@ import { app, serveSpa } from "./index";
 
 let TMP_DIST: string;
 
-describe("health", () => {
-  it("returns 200 ok with uptime", async () => {
-    const res = await app.handle(new Request("http://localhost/health"));
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { status: string; uptime: number };
-    expect(body.status).toBe("ok");
-    expect(typeof body.uptime).toBe("number");
-  });
-});
+// health route owned by routes/health.ts; see health.test.ts
 
 describe("api 404", () => {
   it("returns 404 for unknown api routes", async () => {
