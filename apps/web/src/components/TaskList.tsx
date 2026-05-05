@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, Index, onCleanup, Show, type JSX } from "solid-js";
 import { LOADING_DELAY_MS } from "../constants";
 import { LIST_FETCH_ERROR_COPY } from "../data/announcements";
 import { useTasks } from "../data/queries";
@@ -32,7 +32,7 @@ export function TaskList(): JSX.Element {
         >
           <Show when={(query.data ?? []).length > 0} fallback={<EmptyState />}>
             <ul role="list" class="task-list">
-              <For each={query.data ?? []}>{(task) => <TaskRow task={task} />}</For>
+              <Index each={query.data ?? []}>{(task) => <TaskRow task={task()} />}</Index>
             </ul>
           </Show>
         </Show>

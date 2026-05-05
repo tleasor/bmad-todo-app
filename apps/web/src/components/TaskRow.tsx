@@ -16,9 +16,18 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
   const sync = (): CaptureSyncEntry | ToggleSyncEntry | undefined => toggleSync() ?? captureSync();
   const toggleMutation = useToggleTask();
 
+  const handleRowKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === " " && event.target === event.currentTarget) {
+      event.preventDefault();
+      if (toggleMutation.isPending) return;
+      toggleMutation.mutate({ id: props.task.id, completed: !props.task.completed });
+    }
+  };
+
   return (
     <li
       tabindex="0"
+      onKeyDown={handleRowKeyDown}
       class="task-row flex flex-col py-3 px-4 min-[900px]:px-2 hover:bg-token-bg-subtle"
       classList={{
         "task-row--retry-exhausted": sync()?.status === "exhausted",

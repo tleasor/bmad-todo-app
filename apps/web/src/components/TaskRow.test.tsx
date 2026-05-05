@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, fireEvent, render } from "@solidjs/testing-library";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
-import type { Task, TasksPatchResponse } from "../data/api";
+import type { Task, TasksPatchBody, TasksPatchResponse } from "../data/api";
 import { _tasksApiSeams } from "../data/api";
 import { __captureSyncMutators, __resetCaptureSyncStoreForTests } from "../data/captureSyncStore";
 import { __resetToggleSyncStoreForTests, __toggleSyncMutators } from "../data/toggleSyncStore";
@@ -265,6 +265,46 @@ describe("TaskRow sync states", () => {
     // Toggle is pending → should show Saving indicator, not exhausted state
     const indicators = queryAllByLabelText("Saving");
     expect(indicators).toHaveLength(1);
+  });
+});
+
+describe("TaskRow keyboard Space handler", () => {
+  it("Space on the <li> container calls patchFetch", async () => {
+    const patchMock = mock(
+      (_id: string, _body: TasksPatchBody): Promise<TasksPatchResponse> =>
+        new Promise<TasksPatchResponse>(() => undefined),
+    );
+    _tasksApiSeams.patchFetch = patchMock;
+    const { container } = renderRow(baseTask());
+    const li = container.querySelector("li")!;
+    fireEvent.keyDown(li, { key: " " });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(patchMock.mock.calls).toHaveLength(1);
+    expect(patchMock.mock.calls[0]?.[0]).toBe("0193f000-0000-7000-8000-000000000000");
+    expect(patchMock.mock.calls[0]?.[1]).toEqual({ completed: true });
+  });
+
+  it("Space on the Checkbox button does not invoke the row-level handler", async () => {
+    const patchMock = mock(
+      (_id: string, _body: TasksPatchBody): Promise<TasksPatchResponse> =>
+        new Promise<TasksPatchResponse>(() => undefined),
+    );
+    _tasksApiSeams.patchFetch = patchMock;
+    const { getByRole } = renderRow(baseTask());
+    const checkbox = getByRole("checkbox");
+    fireEvent.keyDown(checkbox, { key: " " });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(patchMock.mock.calls).toHaveLength(0);
+  });
+
+  it("Space on the <li> calls event.preventDefault", () => {
+    const { container } = renderRowWithClient(baseTask());
+    const li = container.querySelector("li")!;
+    const event = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    const preventDefaultSpy = mock(() => undefined);
+    Object.defineProperty(event, "preventDefault", { value: preventDefaultSpy });
+    li.dispatchEvent(event);
+    expect(preventDefaultSpy.mock.calls).toHaveLength(1);
   });
 });
 

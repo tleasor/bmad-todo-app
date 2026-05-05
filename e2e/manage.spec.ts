@@ -80,6 +80,25 @@ test.describe("manage tasks — toggle", () => {
     await expect(items.nth(1)).toContainText(firstText);
   });
 
+  test("Space on a focused row toggles completion without .click()", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    const text = `space-toggle ${Date.now()}`;
+    await addTask(page, text);
+
+    const row = page.getByRole("listitem").filter({ hasText: text });
+    const checkbox = row.getByRole("checkbox");
+    await expect(checkbox).toHaveAttribute("aria-checked", "false");
+
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Space");
+
+    await expect(checkbox).toHaveAttribute("aria-checked", "true");
+    const isFocused = await row.evaluate((el) => el === document.activeElement);
+    expect(isFocused).toBe(true);
+  });
+
   test("axe-core reports no violations on the completed row state", async ({ page }) => {
     await page.goto("/");
     await waitForListSettled(page);
