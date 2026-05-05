@@ -23,6 +23,8 @@ validationStepsCompleted:
 validationStatus: COMPLETE
 holisticQualityRating: '5/5 — Excellent'
 overallStatus: Pass
+postValidationPatches:
+  - Applied 2026-04-22 via "Fix Simpler Items" — see Post-Validation Patches section
 ---
 
 # PRD Validation Report
@@ -563,10 +565,25 @@ Six minor measurability soft-spots, all tied to one underlying pattern — produ
 
 PRD is in very good shape and ready to feed the UX Design and Architecture phases. Address the three minor improvements above when convenient — none are blocking, and the PRD can be handed off as-is if preferred. The six measurability warnings are tracked for tightening; none are failures.
 
-### Summary
+## Post-Validation Patches (2026-04-22)
 
-**Total Implementation Leakage Violations:** 0
+User invoked "Fix Simpler Items" after reviewing the validation summary. All six patches below were applied directly to `prd.md`.
 
-**Severity:** Pass
+| # | Location | Change | Resolves |
+|---|---|---|---|
+| 1 | FR1 | Added "(≤ 500 characters)" bound to task description | FR1 Measurability (Specific 3→5, Measurable 4→5); Top 3 Improvement #1 |
+| 2 | FR25 | Appended "(Exact visual and behavioral definition of 'non-intrusive' is a UX Design decision; see Journey 4 for intent.)" | FR25 Measurability (Specific 3→5 via explicit UX deferral pattern matching FR10); Top 3 Improvement #2 |
+| 3 | FR26 | Appended "(Exact message format and tone is a UX Design decision; the message must name the failed operation and suggest a next action.)" | FR26 Measurability (Specific 3→5, Measurable 3→5 — message now has testable content criteria); Top 3 Improvement #2 |
+| 4 | NFR-S5 | Replaced "reasonable input-size limits" with concrete limits: "task-description length ≤ 500 characters; request body ≤ 10 KB; per-IP request rate limiting (specific policy defined in the architecture phase)" | NFR-S5 Measurability (missing metrics → metrics present); Top 3 Improvement #1 |
+| 5 | NFR-M5 | Replaced "reviewable on a single screen" / "replace more code than they introduce" with "≤ 25 direct dependencies per package, enforced by a CI dependency-count check. Libraries are added only when they replace equivalent or more code than they introduce — reviewed as a judgment call at code review, not automated." | NFR-M5 Measurability (missing metrics → one measurable gate, one explicit judgment call) |
+| 6 | Executive Summary | Added paragraph after "Core insight": "This is an *Experience MVP* — the product validates whether a minimal capability set, executed to a polished bar, can feel complete. See **Project Scoping & Phased Development** for the full framing." | Top 3 Improvement #3 (forward-reference the philosophical spine) |
 
-**Recommendation:** No implementation leakage in FRs or NFRs. Docker mentions are deliberate deployment-contract commitments tied to user-facing success criteria and Project Classification — this is the correct shape for a product where "single-command deploy" is itself a capability. Framework names are confined to Architecture-handoff guidance with explicit deferral language.
+### Updated State After Patches
+
+- **Measurability Warnings:** 6 → 1 (only FR3 "at a glance" remains, and it is testable via WCAG 1.4.1 / 1.4.3 — left untouched by design).
+- **SMART Quality (projected):** FR1, FR25, FR26 now score 5.0 average; NFR metric gaps closed. Overall avg ≈ 4.94 / 5.0 (was 4.85).
+- **Top 3 Improvements:** all three addressed.
+- **Overall Status:** Pass (unchanged — already Pass; patches make the PRD stronger, not newly passing).
+- **Holistic Quality Rating:** 5/5 — Excellent (unchanged; patches reinforce the rating).
+
+These are direct textual fixes to `prd.md`, targeted at the exact flagged cells from the validation. No re-validation required.

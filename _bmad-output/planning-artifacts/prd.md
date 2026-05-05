@@ -46,6 +46,8 @@ Speed is the felt-quality differentiator, expressed in two dimensions:
 
 **Core insight:** At deliberately minimal scope, the only way for the product to feel complete is to execute its few interactions to a polished standard. Five keyboard-accessible, instantaneous actions read as more finished than twenty sluggish, mouse-bound ones.
 
+This is an *Experience MVP* — the product validates whether a minimal capability set, executed to a polished bar, can feel complete. See **Project Scoping & Phased Development** for the full framing.
+
 ## Project Classification
 
 - **Project Type:** `web_app` — full-stack: responsive browser UI and backend CRUD API
@@ -311,7 +313,7 @@ See **Product Scope › Growth Features (Post-MVP)** and **Product Scope › Vis
 
 ### Task Capture & Listing
 
-- **FR1:** Users can create a new task by entering a short text description.
+- **FR1:** Users can create a new task by entering a short text description (≤ 500 characters).
 - **FR2:** Users can view all of their tasks in a single list.
 - **FR3:** Users can see at a glance which tasks are active and which are completed, with the distinction communicated through more than color alone.
 - **FR4:** The product displays an explicit empty state when the task list contains no tasks.
@@ -353,8 +355,8 @@ See **Product Scope › Growth Features (Post-MVP)** and **Product Scope › Vis
 
 - **FR23:** Task creation, completion toggle, and deletion appear to succeed immediately from the user's perspective.
 - **FR24:** When a write operation fails, the product retries in the background without requiring user action.
-- **FR25:** When a write operation has not yet successfully synced, the affected task displays a non-intrusive sync-status indicator.
-- **FR26:** When background retries ultimately exhaust, the product displays an actionable error message in context without losing the user's input.
+- **FR25:** When a write operation has not yet successfully synced, the affected task displays a non-intrusive sync-status indicator. (Exact visual and behavioral definition of "non-intrusive" is a UX Design decision; see Journey 4 for intent.)
+- **FR26:** When background retries ultimately exhaust, the product displays an actionable error message in context without losing the user's input. (Exact message format and tone is a UX Design decision; the message must name the failed operation and suggest a next action.)
 - **FR27:** The product never silently loses task data due to network or transient backend failures.
 
 ### API
@@ -396,7 +398,7 @@ The product does not handle authentication, payments, PHI, PII, or any regulated
 - **NFR-S2:** The backend validates and sanitizes all task-description input at the API boundary; no SQL injection, no NoSQL injection, no command injection vectors in the API handlers.
 - **NFR-S3:** All third-party dependencies are version-pinned and audited for known vulnerabilities at build time; a dependency with a known high-or-critical CVE does not ship in a release.
 - **NFR-S4:** The product does not collect, log, or transmit any personal identifying information. Task content is the only user-generated data stored; it is accessible only to the user who created it and is not shared with third parties.
-- **NFR-S5:** The API enforces reasonable input-size limits (task-description length, request body size) to prevent resource-exhaustion attacks.
+- **NFR-S5:** The API enforces input-size limits to prevent resource-exhaustion attacks: task-description length ≤ 500 characters; request body ≤ 10 KB; per-IP request rate limiting (specific policy defined in the architecture phase).
 
 ### Reliability & Observability
 
@@ -414,4 +416,4 @@ Maintainability is an explicit product concern: the solution should be easy to u
 - **NFR-M2:** End-to-end test suite of ≥5 Playwright tests covering the core journeys (create, complete, delete, empty state, error handling).
 - **NFR-M3:** The codebase passes its own linter and type-checker without warnings. PRs introducing new warnings do not merge.
 - **NFR-M4:** Public interfaces (API contract, module boundaries) are documented either inline (docstrings, schema) or in a minimal `README.md` sufficient for a new developer to run and modify the product locally within 30 minutes.
-- **NFR-M5:** Dependency footprint is conservative: libraries are added only when they replace more code than they introduce, and total dependency count is reviewable on a single screen.
+- **NFR-M5:** Production dependency footprint: ≤ 25 direct dependencies per package (frontend and backend counted separately), enforced by a CI dependency-count check. Libraries are added only when they replace equivalent or more code than they introduce — reviewed as a judgment call at code review, not automated.
