@@ -1,2 +1,3 @@
 export const MAX_TASK_LENGTH = 500;
 export const CHARACTER_COUNTER_THRESHOLD = 400;
+export const LOADING_DELAY_MS = 200;

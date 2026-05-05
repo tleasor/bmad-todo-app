@@ -66,6 +66,7 @@ export const app = baseApp
   .get("/*", ({ request }) => serveSpa(request, { isDev: env.IS_DEV }));
 
 export type App = typeof app;
+export type { Task } from "./storage/tasks";
 
 if (import.meta.main) {
   app.listen({ port: env.PORT, maxRequestBodySize: 1024 * 1024 });

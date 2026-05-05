@@ -57,6 +57,7 @@
   --motion-short: 120ms;
   --motion-medium: 180ms;
   --motion-long: 240ms;
+  --motion-shimmer: 1500ms;
 }
 
 @media (prefers-color-scheme: dark) {
