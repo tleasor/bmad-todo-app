@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>bmad-todo-app — UX Design Preview</title>
+  <style>
+    /* ========================================================================
+       Design tokens — light theme (default)
+       ======================================================================== */
+    :root {
+      --color-bg-canvas: #FAFAFA;
+      --color-bg-surface: #FFFFFF;
+      --color-bg-subtle: #F4F4F5;
+      --color-border-default: #E4E4E7;
+      --color-border-strong: #A1A1AA;
+      --color-text-primary: #18181B;
+      --color-text-secondary: #52525B;
+      --color-text-muted: #71717A;
+      --color-text-disabled: #A1A1AA;
+      --color-accent-default: #2563EB;
+      --color-accent-subtle: #DBEAFE;
+      --color-status-pending: #A1A1AA;
+      --color-status-error: #B91C1C;
+      --color-status-error-subtle: #FEE2E2;
+
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --space-10: 40px;
+      --space-12: 48px;
+      --space-16: 64px;
+
+      --radius-sm: 4px;
+      --radius-md: 6px;
+
+      --motion-short: 120ms;
+      --motion-medium: 180ms;
+
+      --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+                   "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    /* Dark theme — driven by OS preference */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-bg-canvas: #09090B;
+        --color-bg-surface: #18181B;
+        --color-bg-subtle: #27272A;
+        --color-border-default: #27272A;
+        --color-border-strong: #52525B;
+        --color-text-primary: #FAFAFA;
+        --color-text-secondary: #A1A1AA;
+        --color-text-muted: #71717A;
+        --color-text-disabled: #52525B;
+        --color-accent-default: #60A5FA;
+        --color-accent-subtle: #1E3A8A;
+        --color-status-pending: #71717A;
+        --color-status-error: #F87171;
+        --color-status-error-subtle: #450A0A;
+      }
+    }
+
+    /* Manual theme overrides for side-by-side preview */
+    .theme-light {
+      --color-bg-canvas: #FAFAFA;
+      --color-bg-surface: #FFFFFF;
+      --color-bg-subtle: #F4F4F5;
+      --color-border-default: #E4E4E7;
+      --color-border-strong: #A1A1AA;
+      --color-text-primary: #18181B;
+      --color-text-secondary: #52525B;
+      --color-text-muted: #71717A;
+      --color-text-disabled: #A1A1AA;
+      --color-accent-default: #2563EB;
+      --color-accent-subtle: #DBEAFE;
+      --color-status-pending: #A1A1AA;
+      --color-status-error: #B91C1C;
+      --color-status-error-subtle: #FEE2E2;
+    }
+
+    .theme-dark {
+      --color-bg-canvas: #09090B;
+      --color-bg-surface: #18181B;
+      --color-bg-subtle: #27272A;
+      --color-border-default: #27272A;
+      --color-border-strong: #52525B;
+      --color-text-primary: #FAFAFA;
+      --color-text-secondary: #A1A1AA;
+      --color-text-muted: #71717A;
+      --color-text-disabled: #52525B;
+      --color-accent-default: #60A5FA;
+      --color-accent-subtle: #1E3A8A;
+      --color-status-pending: #71717A;
+      --color-status-error: #F87171;
+      --color-status-error-subtle: #450A0A;
+    }
+
+    /* ========================================================================
+       Preview page scaffolding (not part of the product)
+       ======================================================================== */
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-body);
+      background: #e5e5e5;
+      color: #111;
+    }
+
+    .preview-shell {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-4);
+    }
+
+    .preview-header {
+      margin-bottom: var(--space-8);
+    }
+
+    .preview-header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 var(--space-2) 0;
+    }
+
+    .preview-header p {
+      color: #555;
+      margin: 0;
+      max-width: 720px;
+      line-height: 1.5;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-8);
+    }
+
+    @media (min-width: 1100px) {
+      .preview-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .preview-section {
+      background: #fff;
+      border: 1px solid #d4d4d8;
+      border-radius: 8px;
+      padding: var(--space-6);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    .preview-section h2 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin: 0 0 var(--space-1) 0;
+      color: #111;
+    }
+
+    .preview-section .caption {
+      font-size: 0.875rem;
+      color: #666;
+      margin: 0 0 var(--space-4) 0;
+    }
+
+    .preview-section.full {
+      grid-column: 1 / -1;
+    }
+
+    .frame {
+      border: 1px solid #d4d4d8;
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--color-bg-canvas);
+      color: var(--color-text-primary);
+    }
+
+    .frame-label {
+      font-size: 0.75rem;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: var(--space-2);
+    }
+
+    .frame-pair {
+      display: grid;
+      gap: var(--space-4);
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 720px) {
+      .frame-pair.dual {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .frame-compact-group {
+      display: grid;
+      gap: var(--space-4);
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    /* ========================================================================
+       Product UI — real application rendering
+       ======================================================================== */
+    .app {
+      background: var(--color-bg-canvas);
+      color: var(--color-text-primary);
+      font-family: var(--font-body);
+      min-height: 320px;
+      padding: var(--space-10) var(--space-4);
+    }
+
+    .app.expanded {
+      padding: var(--space-12) var(--space-4);
+    }
+
+    .app-column {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .task-input {
+      width: 100%;
+      height: 48px;
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 1rem;
+      color: var(--color-text-primary);
+      caret-color: var(--color-accent-default);
+      outline: none;
+      transition: border-color var(--motion-short) ease-out;
+    }
+
+    .task-input::placeholder {
+      color: var(--color-text-secondary);
+    }
+
+    .task-input:hover {
+      border-color: var(--color-border-strong);
+    }
+
+    .task-input.focused,
+    .task-input:focus {
+      border-color: var(--color-border-strong);
+      outline: 2px solid var(--color-accent-default);
+      outline-offset: 2px;
+    }
+
+    .task-list {
+      margin-top: var(--space-8);
+      list-style: none;
+      padding: 0;
+    }
+
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-2);
+      border-bottom: 1px solid var(--color-border-default);
+      position: relative;
+    }
+
+    .task-row:hover {
+      background: var(--color-bg-subtle);
+    }
+
+    .task-row:hover .task-delete,
+    .task-row.focused .task-delete {
+      opacity: 1;
+    }
+
+    .task-row.focused {
+      outline: 2px solid var(--color-accent-default);
+      outline-offset: 2px;
+      border-radius: var(--radius-sm);
+    }
+
+    .task-row.error {
+      background: var(--color-status-error-subtle);
+    }
+
+    .checkbox {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--color-border-strong);
+      border-radius: 50%;
+      background: transparent;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: border-color var(--motion-short) ease-out,
+                  background-color var(--motion-short) ease-out;
+    }
+
+    .task-row:hover .checkbox:not(.checked) {
+      border-color: var(--color-accent-default);
+    }
+
+    .checkbox.checked {
+      background: var(--color-accent-default);
+      border-color: var(--color-accent-default);
+    }
+
+    .checkbox.checked svg {
+      color: var(--color-bg-surface);
+    }
+
+    .task-text {
+      flex: 1;
+      font-size: 1rem;
+      line-height: 1.5;
+      color: var(--color-text-primary);
+      transition: color var(--motion-short) ease-out;
+      word-break: break-word;
+    }
+
+    .task-row.completed .task-text {
+      color: var(--color-text-muted);
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+
+    .task-error-message {
+      display: block;
+      font-size: 0.875rem;
+      line-height: 1.4;
+      color: var(--color-status-error);
+      margin-top: var(--space-1);
+    }
+
+    .sync-indicator {
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+      border: 1.5px dashed var(--color-status-pending);
+      border-radius: 50%;
+      animation: sync-spin 1.5s linear infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .sync-indicator {
+        animation: none;
+      }
+    }
+
+    @keyframes sync-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .retry-action {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      padding: var(--space-1) var(--space-2);
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-accent-default);
+      cursor: pointer;
+    }
+
+    .retry-action:focus {
+      outline: 2px solid var(--color-accent-default);
+      outline-offset: 2px;
+      border-radius: var(--radius-sm);
+    }
+
+    .task-delete {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      padding: var(--space-1);
+      color: var(--color-text-muted);
+      opacity: 0;
+      cursor: pointer;
+      transition: opacity var(--motion-short) ease-out,
+                  color var(--motion-short) ease-out;
+      display: grid;
+      place-items: center;
+    }
+
+    .task-delete:hover,
+    .task-delete:focus {
+      color: var(--color-status-error);
+    }
+
+    /* On touch devices, delete affordance is always visible */
+    @media (hover: none) {
+      .task-delete {
+        opacity: 1;
+      }
+    }
+
+    /* Empty state */
+    .empty-state {
+      margin-top: var(--space-8);
+      padding: var(--space-10) 0;
+      text-align: center;
+      color: var(--color-text-secondary);
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    /* Loading state */
+    .loading-list {
+      margin-top: var(--space-8);
+      list-style: none;
+      padding: 0;
+    }
+
+    .skeleton-row {
+      padding: var(--space-3) var(--space-2);
+      border-bottom: 1px solid var(--color-border-default);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .skeleton-circle {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--color-bg-subtle);
+    }
+
+    .skeleton-text {
+      flex: 1;
+      height: 16px;
+      background: var(--color-bg-subtle);
+      border-radius: var(--radius-sm);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .skeleton-text::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255,255,255,0.4) 50%,
+        transparent 100%);
+      animation: shimmer 1.6s linear infinite;
+    }
+
+    .theme-dark .skeleton-text::after {
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255,255,255,0.06) 50%,
+        transparent 100%);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not(.theme-light) .skeleton-text::after {
+        background: linear-gradient(90deg,
+          transparent 0%,
+          rgba(255,255,255,0.06) 50%,
+          transparent 100%);
+      }
+    }
+
+    @keyframes shimmer {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton-text::after { animation: none; display: none; }
+    }
+
+    .skeleton-text.short { max-width: 60%; }
+    .skeleton-text.mid   { max-width: 75%; }
+
+    /* Character counter */
+    .input-counter {
+      margin-top: var(--space-1);
+      text-align: right;
+      font-size: 0.8125rem;
+      color: var(--color-text-secondary);
+    }
+
+    /* Compact tier special padding */
+    .app.compact {
+      padding: var(--space-10) var(--space-4);
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-shell">
+
+    <header class="preview-header">
+      <h1>bmad-todo-app — UX Design Preview</h1>
+      <p>
+        A static, one-shot visualization of the chosen design direction applied to the primary
+        application states. This file is a review artifact, not a maintained asset. Use it to
+        sanity-check typography, rhythm, state treatments, and contrast in both themes
+        before the component strategy is formalized.
+      </p>
+    </header>
+
+    <div class="preview-grid">
+
+      <!-- Light theme: empty state -->
+      <section class="preview-section">
+        <h2>Empty state — light</h2>
+        <p class="caption">First-time visit or after clearing all tasks. Input focused on load.</p>
+        <div class="frame theme-light">
+          <div class="app">
+            <div class="app-column">
+              <input
+                class="task-input focused"
+                type="text"
+                placeholder="What needs doing?"
+                aria-label="New task"
+              />
+              <div class="empty-state">
+                No tasks yet. Start by typing above.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dark theme: empty state -->
+      <section class="preview-section">
+        <h2>Empty state — dark</h2>
+        <p class="caption">Same state, OS-level dark preference honoured.</p>
+        <div class="frame theme-dark">
+          <div class="app">
+            <div class="app-column">
+              <input
+                class="task-input focused"
+                type="text"
+                placeholder="What needs doing?"
+                aria-label="New task"
+              />
+              <div class="empty-state">
+                No tasks yet. Start by typing above.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Populated: full-featured list showing all row states -->
+      <section class="preview-section full">
+        <h2>Populated list — all row states (light)</h2>
+        <p class="caption">
+          Covers: default active row, hover row, keyboard-focused row, completed row,
+          sync-pending row, and retry-exhausted error row.
+        </p>
+        <div class="frame theme-light">
+          <div class="app">
+            <div class="app-column">
+              <input
+                class="task-input"
+                type="text"
+                placeholder="What needs doing?"
+                value=""
+                aria-label="New task"
+              />
+              <ul class="task-list" role="list">
+
+                <li class="task-row" role="listitem">
+                  <span class="checkbox" role="checkbox" aria-checked="false"></span>
+                  <span class="task-text">Review contract rider</span>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+                <li class="task-row focused" role="listitem" aria-selected="true">
+                  <span class="checkbox" role="checkbox" aria-checked="false"></span>
+                  <span class="task-text">Call back studio about the brief revision and share the new moodboard</span>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+                <li class="task-row completed" role="listitem">
+                  <span class="checkbox checked" role="checkbox" aria-checked="true">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.3 2.3L9.5 3.5"/></svg>
+                  </span>
+                  <span class="task-text">Pick up dry cleaning</span>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+                <li class="task-row" role="listitem">
+                  <span class="checkbox" role="checkbox" aria-checked="false"></span>
+                  <span class="task-text">Send invoice for March</span>
+                  <span class="sync-indicator" aria-label="Saving"></span>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+                <li class="task-row error" role="listitem">
+                  <span class="checkbox" role="checkbox" aria-checked="false"></span>
+                  <span class="task-text">
+                    Book flights for the Berlin trip
+                    <span class="task-error-message">Couldn't save — check connection.</span>
+                  </span>
+                  <button class="retry-action">Retry</button>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+                <li class="task-row completed" role="listitem">
+                  <span class="checkbox checked" role="checkbox" aria-checked="true">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.3 2.3L9.5 3.5"/></svg>
+                  </span>
+                  <span class="task-text">Draft Q2 planning notes</span>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Populated: dark -->
+      <section class="preview-section full">
+        <h2>Populated list — all row states (dark)</h2>
+        <p class="caption">Same content, dark theme. Validates contrast on all token combinations.</p>
+        <div class="frame theme-dark">
+          <div class="app">
+            <div class="app-column">
+              <input class="task-input" type="text" placeholder="What needs doing?" aria-label="New task" />
+              <ul class="task-list" role="list">
+
+                <li class="task-row" role="listitem">
+                  <span class="checkbox" role="checkbox" aria-checked="false"></span>
+                  <span class="task-text">Review contract rider</span>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+                <li class="task-row focused" role="listitem">
+                  <span class="checkbox" role="checkbox" aria-checked="false"></span>
+                  <span class="task-text">Call back studio about the brief revision and share the new moodboard</span>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+                <li class="task-row completed" role="listitem">
+                  <span class="checkbox checked" role="checkbox" aria-checked="true">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.3 2.3L9.5 3.5"/></svg>
+                  </span>
+                  <span class="task-text">Pick up dry cleaning</span>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+                <li class="task-row" role="listitem">
+                  <span class="checkbox" role="checkbox" aria-checked="false"></span>
+                  <span class="task-text">Send invoice for March</span>
+                  <span class="sync-indicator" aria-label="Saving"></span>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+                <li class="task-row error" role="listitem">
+                  <span class="checkbox" role="checkbox" aria-checked="false"></span>
+                  <span class="task-text">
+                    Book flights for the Berlin trip
+                    <span class="task-error-message">Couldn't save — check connection.</span>
+                  </span>
+                  <button class="retry-action">Retry</button>
+                  <button class="task-delete" aria-label="Delete task">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.5 9a1.5 1.5 0 0 0 1.5 1.4h4a1.5 1.5 0 0 0 1.5-1.4L12 4"/></svg>
+                  </button>
+                </li>
+
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Loading state -->
+      <section class="preview-section">
+        <h2>Loading state — light</h2>
+        <p class="caption">Shown only when initial fetch exceeds ~200 ms. Three skeleton rows with shimmer.</p>
+        <div class="frame theme-light">
+          <div class="app">
+            <div class="app-column">
+              <input class="task-input" type="text" placeholder="What needs doing?" aria-label="New task" />
+              <ul class="loading-list" aria-busy="true" aria-live="polite">
+                <li class="skeleton-row">
+                  <span class="skeleton-circle"></span>
+                  <span class="skeleton-text mid"></span>
+                </li>
+                <li class="skeleton-row">
+                  <span class="skeleton-circle"></span>
+                  <span class="skeleton-text"></span>
+                </li>
+                <li class="skeleton-row">
+                  <span class="skeleton-circle"></span>
+                  <span class="skeleton-text short"></span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Loading: dark -->
+      <section class="preview-section">
+        <h2>Loading state — dark</h2>
+        <p class="caption">Same skeleton treatment, dark theme.</p>
+        <div class="frame theme-dark">
+          <div class="app">
+            <div class="app-column">
+              <input class="task-input" type="text" placeholder="What needs doing?" aria-label="New task" />
+              <ul class="loading-list" aria-busy="true" aria-live="polite">
+                <li class="skeleton-row">
+                  <span class="skeleton-circle"></span>
+                  <span class="skeleton-text mid"></span>
+                </li>
+                <li class="skeleton-row">
+                  <span class="skeleton-circle"></span>
+                  <span class="skeleton-text"></span>
+                </li>
+                <li class="skeleton-row">
+                  <span class="skeleton-circle"></span>
+                  <span class="skeleton-text short"></span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Responsive tiers -->
+      <section class="preview-section full">
+        <h2>Responsive tiers — Compact / Medium / Expanded</h2>
+        <p class="caption">
+          Content width is capped at 640 px at Expanded and above; wider viewports gain whitespace,
+          not wider content. All tiers share the same row, input, and state treatments.
+        </p>
+
+        <div class="frame-compact-group">
+
+          <div>
+            <div class="frame-label">Compact (≤599 px)</div>
+            <div class="frame theme-light" style="max-width: 380px;">
+              <div class="app compact">
+                <div class="app-column">
+                  <input class="task-input focused" type="text" placeholder="What needs doing?" aria-label="New task" />
+                  <ul class="task-list" role="list">
+                    <li class="task-row"><span class="checkbox"></span><span class="task-text">Review contract rider</span></li>
+                    <li class="task-row completed"><span class="checkbox checked"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.3 2.3L9.5 3.5"/></svg></span><span class="task-text">Pick up dry cleaning</span></li>
+                    <li class="task-row"><span class="checkbox"></span><span class="task-text">Send invoice</span><span class="sync-indicator" aria-label="Saving"></span></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="frame-label">Medium (600–899 px)</div>
+            <div class="frame theme-light" style="max-width: 560px;">
+              <div class="app">
+                <div class="app-column">
+                  <input class="task-input" type="text" placeholder="What needs doing?" aria-label="New task" />
+                  <ul class="task-list" role="list">
+                    <li class="task-row"><span class="checkbox"></span><span class="task-text">Review contract rider</span></li>
+                    <li class="task-row completed"><span class="checkbox checked"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.3 2.3L9.5 3.5"/></svg></span><span class="task-text">Pick up dry cleaning</span></li>
+                    <li class="task-row"><span class="checkbox"></span><span class="task-text">Send invoice for March</span></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="frame-label">Expanded (900–1199 px)</div>
+            <div class="frame theme-light" style="max-width: 900px;">
+              <div class="app expanded">
+                <div class="app-column">
+                  <input class="task-input" type="text" placeholder="What needs doing?" aria-label="New task" />
+                  <ul class="task-list" role="list">
+                    <li class="task-row"><span class="checkbox"></span><span class="task-text">Review contract rider</span></li>
+                    <li class="task-row completed"><span class="checkbox checked"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.3 2.3L9.5 3.5"/></svg></span><span class="task-text">Pick up dry cleaning</span></li>
+                    <li class="task-row"><span class="checkbox"></span><span class="task-text">Send invoice for March</span></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </div>
+</body>
+</html>
