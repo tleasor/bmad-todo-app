@@ -133,7 +133,7 @@ Three escalating scripts in root `package.json`:
 
 - **`bun run check`** (~5s) — oxlint format + lint, tsgo `--noEmit`, `scripts/check-dep-count.sh`. Run while iterating.
 - **`bun run check:full`** (~30s) — adds `bun test` across workspaces, `bun audit` (NFR-S3), `bun run build`, `scripts/check-bundle-size.sh`. Run before declaring a meaningful change done.
-- **`bun run check:release`** (~3min) — adds Playwright E2E (with embedded axe-core assertions, NFR-M2 + NFR-A2) and Lighthouse mobile + desktop against `vite preview` (NFR-P1, P2). Run before tagging a version.
+- **`bun run check:release`** (~6–8min) — adds Playwright E2E across **chromium + firefox + webkit projects** (with embedded axe-core assertions, NFR-M2 + NFR-A2) and Lighthouse mobile + desktop against `vite preview` (NFR-P1, P2). Run before tagging a version.
 
 Tooling:
 

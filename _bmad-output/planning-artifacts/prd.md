@@ -15,9 +15,9 @@ stepsCompleted:
   - step-11-polish
   - step-12-complete
 inputDocuments:
-  - _bmad-output/planning-artifacts/PRD-original.md
+  - _bmad-output/planning-artifacts/_archive/PRD-original.md
   - _bmad-output/planning-artifacts/task-details.md
-  - _bmad-output/planning-artifacts/PRD-validation-report.md
+  - _bmad-output/planning-artifacts/_archive/PRD-validation-report.md
 workflowType: 'prd'
 classification:
   projectType: web_app
@@ -299,7 +299,7 @@ See **Product Scope › Growth Features (Post-MVP)** and **Product Scope › Vis
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | "Minimal" reads as "unfinished" if interaction polish slips | Medium | High | Polish is MVP scope, not post-MVP; scope pressure must not trade polish for features |
-| No onboarding means keyboard shortcuts are undiscoverable | Medium | Low–Medium | Visible hint affordance (e.g. subtle shortcut labels on hover/focus); shortcut reference overlay is a Growth feature but initial set should be self-evident (Enter, Space, Delete, arrows) |
+| No onboarding means keyboard shortcuts are undiscoverable | Medium | Low–Medium | Discoverability via in-context **affordance reveal** — interactive elements (e.g. delete control) appear on row hover or focus, signaling actionability without text-label chrome. The initial shortcut set is intentionally restricted to self-evident keys (Enter, Space, Delete, arrows) so the affordance + convention carries the load. Literal shortcut-label hints (e.g. "Del" rendered next to the delete button) and a reference overlay are explicitly out of scope for MVP; the overlay is a Growth feature. Accepted residual risk: a small fraction of users may not discover non-trivial shortcuts (`j`/`k`/`i`/Cmd-Z) until they encounter them. |
 
 **Resource / scope risks**
 

@@ -3,9 +3,9 @@ validationTarget: '_bmad-output/planning-artifacts/prd.md'
 validationDate: '2026-04-22'
 inputDocuments:
   - _bmad-output/planning-artifacts/prd.md
-  - _bmad-output/planning-artifacts/PRD-original.md
+  - _bmad-output/planning-artifacts/_archive/PRD-original.md
   - _bmad-output/planning-artifacts/task-details.md
-  - _bmad-output/planning-artifacts/PRD-validation-report.md
+  - _bmad-output/planning-artifacts/_archive/PRD-validation-report.md
 validationStepsCompleted:
   - step-v-01-discovery
   - step-v-02-format-detection

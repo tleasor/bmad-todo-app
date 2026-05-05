@@ -366,9 +366,17 @@ So that I can clone, run `bun install && bun run dev`, and have a hello-world fr
 
 **Given** the running scaffold,
 **When** the developer runs `bun run check`, `bun run check:full`, and `bun run check:release`,
-**Then** all three scripts pass: oxlint + oxfmt + `tsgo --noEmit` + dep-count (~5 s); plus `bun test` + `bun audit` + bundle-size (~30 s); plus Playwright smoke spec + Lighthouse mobile + desktop (~3 min)
+**Then** all three scripts pass: oxlint + oxfmt + `tsgo --noEmit` + dep-count (~5 s); plus `bun test` + `bun audit` + bundle-size + aggregate coverage threshold (~30 s); plus Playwright multi-browser E2E + Lighthouse mobile + desktop (~6–8 min)
 **And** the smoke `bun:test` exercises `app.handle('/health')` and asserts 200
-**And** the Playwright `e2e/smoke.spec.ts` asserts the page title is set, the input is focused on load, and `/health` returns 200.
+**And** the Playwright `e2e/smoke.spec.ts` asserts the page title is set, the input is focused on load, and `/health` returns 200
+**And** `bun run check:full` invokes `bun test --coverage --coverage-threshold 70` (or equivalent) so that aggregate branch + logic coverage across `apps/web` and `apps/api` is enforced project-wide; cumulative drift below 70 % fails the script and blocks the PR (NFR-M1).
+
+**Given** `playwright.config.ts`,
+**When** the story is complete,
+**Then** the config declares three `projects` — `chromium` (Desktop Chrome), `firefox` (Desktop Firefox), and `webkit` (Desktop Safari) — each with a `use` block aligned to the PRD browser matrix (Chromium ≥ latest 2 majors, Firefox ≥ latest 2 majors, WebKit ≥ Safari 15)
+**And** `bun run check:release` runs every spec in `e2e/` against **all three projects** (no per-spec project filtering); a failure on any project fails the script and blocks the release tag
+**And** the post-install step in the README documents `bunx playwright install chromium firefox webkit` (or equivalent) so a fresh clone can run the multi-browser suite without surprises
+**And** the smoke spec passes on all three projects locally as the story's exit criterion (FR20).
 
 **Given** the scaffolded repo,
 **When** the developer runs `docker compose up` from a fresh clone,
@@ -463,6 +471,13 @@ So that the frontend can fetch the list and create tasks safely on flaky network
 **And** 429 responses include `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` headers
 **And** the middleware applies to all `/api/*` routes and exempts `/health`
 **And** unit tests exercise burst, refill, eviction, and the exempt path.
+
+**Given** the body-size limit middleware,
+**When** the story is complete,
+**Then** Elysia is configured to reject any request with a body larger than **10 KB** before the route handler runs, returning `413` with the standard error envelope and `code: "payload_too_large"` (NFR-S5, FR30)
+**And** the limit applies to all `/api/*` routes and exempts `/health`
+**And** an integration test sends an 11 KB POST body and asserts the response status is `413`, the envelope shape matches Story 1.2's contract, and `code === "payload_too_large"`
+**And** an integration test sends a 9 KB POST body with a valid task payload and asserts it is accepted (status `201` or `400` based on schema, but **not** `413`).
 
 **Given** the API routes,
 **When** the story is complete,
@@ -583,6 +598,13 @@ So that I always know what's in my list, including when there's nothing.
 **Then** the suite covers each list state: pending-under-200 ms (no UI), pending-over-200 ms (skeletons), empty (EmptyState), populated (TaskRow per task)
 **And** axe-core assertions report zero critical violations on each state
 **And** responsive snapshots exist at the Compact, Expanded, and Large tiers (UX-DR18).
+
+**Given** a task whose text contains `<script>alert(1)</script>` (and a second case containing `<img src=x onerror=alert(1)>`),
+**When** TaskRow renders the task,
+**Then** the literal characters appear in the DOM as the text content of the row (e.g. `textContent === "<script>alert(1)</script>"`)
+**And** no `<script>` element exists anywhere in the rendered subtree
+**And** no `onerror` (or other event-handler) attribute is present on any rendered element
+**And** the unit test asserts these properties via `queryByText` + `querySelector("script")` + DOM inspection (NFR-S1).
 
 ### Story 1.8: Optimistic Task Creation — Happy Path
 
@@ -1076,3 +1098,11 @@ So that I can never lose track of where my keyboard is — and the app's keyboar
 **Given** axe-core assertions,
 **When** the keyboard-only spec runs,
 **Then** zero critical violations are reported in any state — active, completed, sync-pending, retry-exhausted, undo-snackbar-visible (NFR-A1, NFR-A2).
+
+**Given** the pre-release screen-reader smoke checklist,
+**When** a release tag is being prepared,
+**Then** a manual screen-reader smoke pass is executed and recorded against three AT/browser/OS combinations: (a) **NVDA + Chrome on Windows**, (b) **VoiceOver + Safari on macOS**, (c) **VoiceOver + Safari on iOS** (NFR-A3)
+**And** each pass exercises Journeys 1–4 end-to-end: add a task, toggle complete, toggle back, delete, undo, observe sync-pending state, observe retry-exhausted state
+**And** every LiveRegion announcement (Saving… / Saved / Couldn't save / N tasks deleted / undo-available / undo-applied) is **audibly heard** by the tester at the expected moment with the expected politeness setting
+**And** focus order, focus landing after delete (next → previous → input), and the keyboard-shortcut set (Enter / Escape / Space / Delete / Backspace / arrows / `j` / `k` / `i` / Tab / Cmd-Ctrl+Z) all behave as specified when announced via the AT
+**And** the checklist outcome (pass / fail / observations) is recorded in the release notes; a failed check on any AT blocks the release tag.
