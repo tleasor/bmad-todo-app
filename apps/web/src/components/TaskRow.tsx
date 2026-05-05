@@ -1,7 +1,9 @@
 import { Show, type JSX } from "solid-js";
 import type { Task } from "../data/api";
 import { LIVE_REGION_RETRY_EXHAUSTED } from "../data/announcements";
-import { useCaptureSyncStatus } from "../data/captureSyncStore";
+import { useCaptureSyncStatus, type CaptureSyncEntry } from "../data/captureSyncStore";
+import { useToggleSyncStatus, type ToggleSyncEntry } from "../data/toggleSyncStore";
+import { useToggleTask } from "../data/queries";
 import "./TaskRow.css";
 
 interface TaskRowProps {
@@ -9,15 +11,28 @@ interface TaskRowProps {
 }
 
 export function TaskRow(props: TaskRowProps): JSX.Element {
-  const sync = useCaptureSyncStatus(() => props.task.id);
+  const captureSync = useCaptureSyncStatus(() => props.task.id);
+  const toggleSync = useToggleSyncStatus(() => props.task.id);
+  const sync = (): CaptureSyncEntry | ToggleSyncEntry | undefined => toggleSync() ?? captureSync();
+  const toggleMutation = useToggleTask();
+
   return (
     <li
       tabindex="0"
       class="task-row flex flex-col py-3 px-4 min-[900px]:px-2 hover:bg-token-bg-subtle"
-      classList={{ "task-row--retry-exhausted": sync()?.status === "exhausted" }}
+      classList={{
+        "task-row--retry-exhausted": sync()?.status === "exhausted",
+        "task-row--completed": props.task.completed,
+      }}
     >
       <div class="task-row__primary">
-        <Checkbox />
+        <Checkbox
+          checked={props.task.completed}
+          disabled={toggleMutation.isPending}
+          onToggle={() =>
+            toggleMutation.mutate({ id: props.task.id, completed: !props.task.completed })
+          }
+        />
         <span class="task-row__text">{props.task.text}</span>
         <Show when={sync()?.status === "pending"}>
           <SyncIndicator />
@@ -52,15 +67,42 @@ function RetryAction(props: { onRetry: () => void }): JSX.Element {
   );
 }
 
-function Checkbox(): JSX.Element {
+interface CheckboxProps {
+  checked: boolean;
+  disabled: boolean;
+  onToggle: () => void;
+}
+
+function Checkbox(props: CheckboxProps): JSX.Element {
   return (
     <button
       type="button"
       role="checkbox"
-      aria-checked="false"
-      aria-label="Mark task as complete"
+      aria-checked={props.checked}
+      aria-label={props.checked ? "Mark task as incomplete" : "Mark task as complete"}
+      disabled={props.disabled}
       class="task-row__checkbox shrink-0 w-5 h-5 rounded-full border-2 border-token-border-strong bg-transparent"
-    />
+      classList={{ "task-row__checkbox--completed": props.checked }}
+      onClick={() => props.onToggle()}
+    >
+      <Show when={props.checked}>
+        <CheckmarkIcon />
+      </Show>
+    </button>
+  );
+}
+
+function CheckmarkIcon(): JSX.Element {
+  return (
+    <svg width="10" height="8" viewBox="0 0 10 8" fill="none" aria-hidden="true">
+      <path
+        d="M1 4L3.5 6.5L9 1"
+        stroke="white"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
   );
 }
 

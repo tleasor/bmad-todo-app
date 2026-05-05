@@ -21,11 +21,26 @@ import {
 } from "./announcements";
 import { TasksApiError, tasksApi, type Task, type TasksPostBody } from "./api";
 import { __captureSyncMutators, __captureSyncStorePeek } from "./captureSyncStore";
+import { __toggleSyncMutators, __toggleSyncStorePeek } from "./toggleSyncStore";
 import { tasksQueryKey } from "./keys";
 
 type CreateTaskContext = { previous: Task[] };
 
 const pendingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const pendingToggleTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+export const __clearTogglePendingTimersForTests = (): void => {
+  for (const timer of pendingToggleTimers.values()) clearTimeout(timer);
+  pendingToggleTimers.clear();
+};
+
+const clearTogglePendingTimer = (id: string): void => {
+  const timer = pendingToggleTimers.get(id);
+  if (timer !== undefined) clearTimeout(timer);
+  pendingToggleTimers.delete(id);
+};
+
+type ToggleTaskInput = { id: string; completed: boolean };
 
 export const computeRetryDecision = (failureCount: number, error: unknown): boolean => {
   if (error instanceof TasksApiError) {
@@ -69,6 +84,59 @@ export const useTasks = (): UseQueryResult<Task[], Error> =>
     refetchOnReconnect: true,
     retry: 2,
   }));
+
+export const useToggleTask = (): UseMutationResult<Task, Error, ToggleTaskInput, void> => {
+  const queryClient = useQueryClient();
+  // eslint-disable-next-line prefer-const
+  let observer: UseMutationResult<Task, Error, ToggleTaskInput, void>;
+  observer = useMutation<Task, Error, ToggleTaskInput, void>(() => ({
+    mutationKey: ["tasks", "toggle"],
+    mutationFn: (input) => tasksApi.toggle(input),
+    retry: computeRetryDecision,
+    retryDelay: computeRetryDelay,
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: tasksQueryKey });
+      const now = Date.now();
+      queryClient.setQueryData<Task[]>(tasksQueryKey, (prev) => {
+        if (!prev) return prev;
+        return prev.map((t) =>
+          t.id === input.id ? { ...t, completed: input.completed, updatedAt: now } : t,
+        );
+      });
+      const retry = (): void => {
+        observer.mutate(input);
+      };
+      clearTogglePendingTimer(input.id);
+      const timer = setTimeout(() => {
+        if (pendingToggleTimers.get(input.id) === timer) {
+          const wasAlreadyPending = __toggleSyncStorePeek(input.id)?.status === "pending";
+          __toggleSyncMutators.markPending(input.id, retry);
+          if (!wasAlreadyPending) announce(LIVE_REGION_SAVING);
+        }
+      }, SYNC_PENDING_DELAY_MS);
+      pendingToggleTimers.set(input.id, timer);
+    },
+    onSuccess: (data, input) => {
+      clearTogglePendingTimer(input.id);
+      queryClient.setQueryData<Task[]>(tasksQueryKey, (prev) =>
+        prev ? prev.map((t) => (t.id === input.id ? data : t)) : prev,
+      );
+      const wasPending = __toggleSyncStorePeek(input.id)?.status === "pending";
+      __toggleSyncMutators.clear(input.id);
+      if (wasPending) announce(LIVE_REGION_SAVED);
+    },
+    onError: (_error, input) => {
+      clearTogglePendingTimer(input.id);
+      const retry = (): void => {
+        observer.mutate(input);
+      };
+      __toggleSyncMutators.markExhausted(input.id, retry);
+      announce(LIVE_REGION_RETRY_EXHAUSTED);
+      // No cache rollback — FR27 / UX-DR16: optimistic toggle stays in place.
+    },
+  }));
+  return observer;
+};
 
 export const useCreateTask = (): UseMutationResult<
   Task,

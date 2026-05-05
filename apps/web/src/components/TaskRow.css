@@ -61,3 +61,47 @@
   outline: 2px solid var(--color-accent-default);
   outline-offset: 2px;
 }
+
+/* Completed text treatment */
+.task-row__text {
+  transition: color var(--motion-short) ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-row__text {
+    transition: none;
+  }
+
+  .task-row__checkbox:hover {
+    transition: none;
+  }
+}
+
+.task-row--completed .task-row__text {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+/* Checkbox completed state */
+.task-row__checkbox--completed {
+  background: var(--color-accent-default);
+  border-color: var(--color-accent-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Checkbox hover — only on hover-capable devices */
+@media (hover: hover) {
+  .task-row__checkbox:hover {
+    border-color: var(--color-accent-default);
+    transition: border-color var(--motion-short) ease-out;
+  }
+}
+
+/* Checkbox focus ring */
+.task-row__checkbox:focus-visible {
+  outline: 2px solid var(--color-accent-default);
+  outline-offset: 2px;
+}

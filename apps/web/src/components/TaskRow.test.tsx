@@ -2,17 +2,25 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, fireEvent, render } from "@solidjs/testing-library";
-import type { Task } from "../data/api";
+import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
+import type { Task, TasksPatchResponse } from "../data/api";
+import { _tasksApiSeams } from "../data/api";
 import { __captureSyncMutators, __resetCaptureSyncStoreForTests } from "../data/captureSyncStore";
+import { __resetToggleSyncStoreForTests, __toggleSyncMutators } from "../data/toggleSyncStore";
 import { TaskRow } from "./TaskRow";
+
+const noRetryClient = (): QueryClient =>
+  new QueryClient({ defaultOptions: { mutations: { retry: false } } });
 
 beforeEach(() => {
   __resetCaptureSyncStoreForTests();
+  __resetToggleSyncStoreForTests();
 });
 
 afterEach(() => {
   cleanup();
   __resetCaptureSyncStoreForTests();
+  __resetToggleSyncStoreForTests();
 });
 
 const baseTask = (overrides: Partial<Task> = {}): Task => ({
@@ -24,12 +32,30 @@ const baseTask = (overrides: Partial<Task> = {}): Task => ({
   ...overrides,
 });
 
-const renderRow = (task: Task): ReturnType<typeof render> =>
-  render(() => (
-    <ul>
-      <TaskRow task={task} />
-    </ul>
+// All TaskRow renders need QueryClientProvider because useToggleTask calls useMutation.
+const renderRow = (task: Task): ReturnType<typeof render> => {
+  const client = noRetryClient();
+  return render(() => (
+    <QueryClientProvider client={client}>
+      <ul>
+        <TaskRow task={task} />
+      </ul>
+    </QueryClientProvider>
   ));
+};
+
+// renderRowWithClient also mocks patchFetch so clicking the checkbox doesn't fire network.
+const originalPatchFetch = _tasksApiSeams.patchFetch;
+const renderRowWithClient = (task: Task): ReturnType<typeof render> => {
+  _tasksApiSeams.patchFetch = mock(
+    (): Promise<TasksPatchResponse> => new Promise<TasksPatchResponse>(() => undefined),
+  );
+  return renderRow(task);
+};
+
+afterEach(() => {
+  _tasksApiSeams.patchFetch = originalPatchFetch;
+});
 
 const assertNoEventHandlerAttributes = (root: HTMLElement): void => {
   const all: Element[] = [root, ...Array.from(root.querySelectorAll("*"))];
@@ -65,9 +91,10 @@ describe("TaskRow", () => {
   });
 
   it("does not throw or change aria-checked when the checkbox is clicked (no mutation wired)", () => {
-    const { getByRole } = renderRow(baseTask());
+    const { getByRole } = renderRowWithClient(baseTask());
     const checkbox = getByRole("checkbox");
     fireEvent.click(checkbox);
+    // aria-checked is driven by props.task.completed (static prop) — stays false immediately
     expect(checkbox.getAttribute("aria-checked")).toBe("false");
   });
 
@@ -92,6 +119,40 @@ describe("TaskRow", () => {
     const textNode = container.querySelector(".task-row__text");
     expect(textNode).not.toBeNull();
     expect(textNode?.textContent).toBe("buy milk");
+  });
+});
+
+describe("TaskRow completed state", () => {
+  it("renders task text with line-through and muted color class when completed", () => {
+    const { container, getByRole } = renderRow(baseTask({ completed: true }));
+    const li = container.querySelector("li");
+    expect(li?.classList.contains("task-row--completed")).toBe(true);
+    const checkbox = getByRole("checkbox");
+    expect(checkbox.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("checkbox shows checkmark icon when completed", () => {
+    const { getByRole } = renderRow(baseTask({ completed: true }));
+    const checkbox = getByRole("checkbox");
+    const svg = checkbox.querySelector("svg");
+    expect(svg).not.toBeNull();
+  });
+
+  it("checkbox aria-label describes the pending action based on completion state", () => {
+    const { getByRole: getActive } = renderRow(baseTask({ completed: false }));
+    expect(getActive("checkbox").getAttribute("aria-label")).toBe("Mark task as complete");
+
+    cleanup();
+
+    const { getByRole: getCompleted } = renderRow(baseTask({ completed: true }));
+    expect(getCompleted("checkbox").getAttribute("aria-label")).toBe("Mark task as incomplete");
+  });
+
+  it("checkbox is disabled while a toggle mutation is in flight", () => {
+    const { getByRole } = renderRowWithClient(baseTask());
+    const checkbox = getByRole("checkbox");
+    fireEvent.click(checkbox);
+    expect(checkbox.hasAttribute("disabled")).toBe(true);
   });
 });
 
@@ -173,6 +234,38 @@ describe("TaskRow sync states", () => {
     expect(container.querySelectorAll("img").length).toBe(0);
     assertNoEventHandlerAttributes(container);
   });
+
+  it("renders SyncIndicator when toggle sync is pending", () => {
+    const task = baseTask({ id: "task-toggle-pending" });
+    __toggleSyncMutators.markPending(task.id, () => undefined);
+    const { getByLabelText, queryByText, queryByRole, container } = renderRow(task);
+
+    expect(getByLabelText("Saving")).toBeDefined();
+    expect(queryByText("Couldn't save — check connection.")).toBeNull();
+    expect(queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(container.querySelector(".task-row--retry-exhausted")).toBeNull();
+  });
+
+  it("renders ErrorMessage and RetryAction when toggle sync is exhausted", () => {
+    const task = baseTask({ id: "task-toggle-exhausted" });
+    __toggleSyncMutators.markExhausted(task.id, () => undefined);
+    const { getByText, getByRole, container } = renderRow(task);
+
+    expect(getByText("Couldn't save — check connection.")).toBeDefined();
+    expect(getByRole("button", { name: "Retry" })).toBeDefined();
+    expect(container.querySelector(".task-row--retry-exhausted")).not.toBeNull();
+  });
+
+  it("compose: toggle sync takes priority over capture sync when both present", () => {
+    const task = baseTask({ id: "task-compose" });
+    __toggleSyncMutators.markPending(task.id, () => undefined);
+    __captureSyncMutators.markExhausted(task.id, () => undefined);
+    const { queryAllByLabelText } = renderRow(task);
+
+    // Toggle is pending → should show Saving indicator, not exhausted state
+    const indicators = queryAllByLabelText("Saving");
+    expect(indicators).toHaveLength(1);
+  });
 });
 
 describe("TaskRow.css contract", () => {
@@ -198,5 +291,35 @@ describe("TaskRow.css contract", () => {
   it("uses the status-error-subtle token for the retry-exhausted row background", () => {
     expect(css).toContain(".task-row--retry-exhausted");
     expect(css).toContain("background: var(--color-status-error-subtle)");
+  });
+
+  it("defines completed text treatment with line-through and muted color", () => {
+    expect(css).toContain(".task-row--completed .task-row__text");
+    expect(css).toContain("text-decoration: line-through");
+    expect(css).toContain("color: var(--color-text-muted)");
+  });
+
+  it("defines checkbox completed state with accent fill", () => {
+    expect(css).toContain(".task-row__checkbox--completed");
+    expect(css).toContain("background: var(--color-accent-default)");
+  });
+
+  it("suppresses text transition under prefers-reduced-motion: reduce", () => {
+    expect(css).toMatch(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[^}]*\.task-row__text\s*\{[^}]*transition:\s*none/,
+    );
+  });
+
+  it("scopes hover styles to hover-capable devices only", () => {
+    expect(css).toContain("@media (hover: hover)");
+    expect(css).toContain(".task-row__checkbox:hover");
+  });
+
+  it("suppresses checkbox hover transition under prefers-reduced-motion: reduce", () => {
+    const reduceStart = css.indexOf("@media (prefers-reduced-motion: reduce)");
+    const hoverStart = css.indexOf("@media (hover: hover)");
+    const checkboxInReduce = css.indexOf(".task-row__checkbox:hover", reduceStart);
+    expect(checkboxInReduce).toBeGreaterThan(reduceStart);
+    expect(checkboxInReduce).toBeLessThan(hoverStart);
   });
 });

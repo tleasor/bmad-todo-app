@@ -21,17 +21,22 @@ import {
 } from "./announcements";
 import { _tasksApiSeams, TasksApiError, tasksApi, type Task, type TasksGetResponse } from "./api";
 import { __captureSyncStorePeek, __resetCaptureSyncStoreForTests } from "./captureSyncStore";
+import { __resetToggleSyncStoreForTests, __toggleSyncStorePeek } from "./toggleSyncStore";
 import { tasksQueryKey } from "./keys";
 import {
   __clearPendingTimersForTests,
+  __clearTogglePendingTimersForTests,
   computeRetryDecision,
   computeRetryDelay,
   useCreateTask,
   useTasks,
+  useToggleTask,
 } from "./queries";
 
 afterEach(() => {
   cleanup();
+  __clearTogglePendingTimersForTests();
+  __resetToggleSyncStoreForTests();
 });
 
 const mockTask = (overrides: Partial<Task> = {}): Task => ({
@@ -637,5 +642,186 @@ describe("useCreateTask sync state", () => {
       (m) => m === LIVE_REGION_SAVED,
     ).length;
     expect(savedCount).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("useToggleTask", () => {
+  let originalToggle: typeof tasksApi.toggle;
+  let originalPatchFetch: typeof _tasksApiSeams.patchFetch;
+
+  beforeEach(() => {
+    originalToggle = tasksApi.toggle;
+    originalPatchFetch = _tasksApiSeams.patchFetch;
+    __clearTogglePendingTimersForTests();
+    __resetLiveRegionForTests();
+    __resetToggleSyncStoreForTests();
+  });
+
+  afterEach(() => {
+    tasksApi.toggle = originalToggle;
+    _tasksApiSeams.patchFetch = originalPatchFetch;
+    __clearTogglePendingTimersForTests();
+    __resetLiveRegionForTests();
+    __resetToggleSyncStoreForTests();
+  });
+
+  const renderProbe = (
+    client: QueryClient,
+  ): { mutation: () => ReturnType<typeof useToggleTask> } => {
+    let captured: ReturnType<typeof useToggleTask> | undefined;
+    const Probe = (): JSX.Element => {
+      captured = useToggleTask();
+      return <div data-testid="probe" />;
+    };
+    renderWithClient(client, () => (
+      <>
+        <LiveRegion />
+        <Probe />
+      </>
+    ));
+    return {
+      mutation: () => {
+        if (!captured) throw new Error("Probe did not capture the mutation observer");
+        return captured;
+      },
+    };
+  };
+
+  const waitDrain = (): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, LIVE_REGION_DRAIN_INTERVAL_MS * 2 + 20));
+
+  it("optimistic update flips completed on the cached task", async () => {
+    const taskId = "0193f000-0000-7000-8000-bb00000000a0";
+    const existing = mockTask({ id: taskId, text: "task", completed: false });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [existing]);
+    tasksApi.toggle = mock((): Promise<Task> => new Promise<Task>(() => {}));
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: taskId, completed: true });
+
+    const cached = await waitFor(() => {
+      const value = client.getQueryData<Task[]>(tasksQueryKey);
+      return value?.[0]?.completed === true ? value : undefined;
+    });
+    expect(cached?.[0]?.id).toBe(taskId);
+    expect(cached?.[0]?.completed).toBe(true);
+  });
+
+  it("success updates cache from server response and clears toggle sync state", async () => {
+    const taskId = "0193f000-0000-7000-8000-bb00000000b1";
+    const existing = mockTask({ id: taskId, completed: false, updatedAt: 1_000 });
+    const serverTask = mockTask({ id: taskId, completed: true, updatedAt: 9_999 });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [existing]);
+    tasksApi.toggle = mock((): Promise<Task> => Promise.resolve(serverTask));
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: taskId, completed: true });
+
+    await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
+
+    expect(__toggleSyncStorePeek(taskId)).toBeUndefined();
+    // Cache reflects the server's authoritative response
+    const cached = client.getQueryData<Task[]>(tasksQueryKey);
+    expect(cached?.[0]?.completed).toBe(true);
+    expect(cached?.[0]?.updatedAt).toBe(9_999);
+  });
+
+  it("resolves before 300 ms — toggle sync store stays empty, LiveRegion silent", async () => {
+    const taskId = "0193f000-0000-7000-8000-bb00000000e0";
+    const existing = mockTask({ id: taskId, completed: false });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [existing]);
+    tasksApi.toggle = mock(
+      (): Promise<Task> =>
+        new Promise<Task>((r) =>
+          setTimeout(() => r(mockTask({ id: taskId, completed: true })), 50),
+        ),
+    );
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: taskId, completed: true });
+    await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
+    await waitDrain();
+
+    expect(__toggleSyncStorePeek(taskId)).toBeUndefined();
+    expect(__getLiveRegionHistoryForTests()).toEqual([]);
+  });
+
+  it("resolves after 300 ms — pending then cleared, 'Saving…' then 'Saved' announced", async () => {
+    const taskId = "0193f000-0000-7000-8000-bb00000000f1";
+    let resolveToggle: (task: Task) => void = () => undefined;
+    const existing = mockTask({ id: taskId, completed: false });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [existing]);
+    tasksApi.toggle = mock(
+      (): Promise<Task> =>
+        new Promise<Task>((r) => {
+          resolveToggle = r;
+        }),
+    );
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: taskId, completed: true });
+    await new Promise((r) => setTimeout(r, 360));
+    expect(__toggleSyncStorePeek(taskId)?.status).toBe("pending");
+
+    resolveToggle(mockTask({ id: taskId, completed: true }));
+    await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
+    await waitDrain();
+    await waitDrain();
+
+    expect(__toggleSyncStorePeek(taskId)).toBeUndefined();
+    const history = __getLiveRegionHistoryForTests();
+    expect(history).toContain(LIVE_REGION_SAVING);
+    expect(history).toContain(LIVE_REGION_SAVED);
+  });
+
+  it("onError marks exhausted and does NOT roll back the optimistic update", async () => {
+    const taskId = "0193f000-0000-7000-8000-bb00000000c2";
+    const existing = mockTask({ id: taskId, completed: false });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [existing]);
+    tasksApi.toggle = mock(
+      (): Promise<Task> =>
+        Promise.reject(new TasksApiError({ status: 400, message: "validation_error" })),
+    );
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: taskId, completed: true });
+
+    await waitFor(() => (probe.mutation().isError ? true : undefined));
+    await waitDrain();
+
+    // Cache still shows completed (no rollback)
+    const cached = client.getQueryData<Task[]>(tasksQueryKey);
+    expect(cached?.[0]?.completed).toBe(true);
+
+    // Toggle sync entry shows exhausted
+    expect(__toggleSyncStorePeek(taskId)?.status).toBe("exhausted");
+    expect(__getLiveRegionHistoryForTests()).toContain(LIVE_REGION_RETRY_EXHAUSTED);
+  });
+
+  it("cancels in-flight tasks queries before applying optimistic update", async () => {
+    const taskId = "0193f000-0000-7000-8000-bb00000000d3";
+    const existing = mockTask({ id: taskId, completed: false });
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [existing]);
+    const cancelMock = mock((_filters: { queryKey: readonly unknown[] }) => Promise.resolve());
+    client.cancelQueries = cancelMock as unknown as typeof client.cancelQueries;
+
+    let capturedCancelCount = -1;
+    tasksApi.toggle = mock((): Promise<Task> => {
+      capturedCancelCount = cancelMock.mock.calls.length;
+      return Promise.resolve(mockTask({ id: taskId, completed: true }));
+    });
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate({ id: taskId, completed: true });
+
+    await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
+    expect(capturedCancelCount).toBe(1);
+    expect(cancelMock.mock.calls[0]?.[0]).toEqual({ queryKey: tasksQueryKey });
   });
 });
