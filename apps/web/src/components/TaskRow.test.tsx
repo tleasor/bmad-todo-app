@@ -542,3 +542,69 @@ describe("TaskRow keyboard arrow navigation", () => {
     expect(document.activeElement).not.toBe(li2);
   });
 });
+
+describe("TaskRow Escape and i shortcut", () => {
+  let fakeInput: HTMLInputElement | null = null;
+
+  afterEach(() => {
+    fakeInput?.remove();
+    fakeInput = null;
+    cleanup();
+  });
+
+  const injectFakeInput = (): HTMLInputElement => {
+    const el = document.createElement("input");
+    el.setAttribute("aria-label", "New task");
+    el.setAttribute("tabindex", "0");
+    document.body.appendChild(el);
+    fakeInput = el;
+    return el;
+  };
+
+  it("Escape on the <li> focuses TaskInput", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "Escape" });
+    expect(document.activeElement).toBe(fakeTaskInput);
+  });
+
+  it("i on the <li> focuses TaskInput", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "i" });
+    expect(document.activeElement).toBe(fakeTaskInput);
+  });
+
+  it("Escape on DeleteButton (child) focuses TaskInput via event bubbling", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const deleteButton = container.querySelector('[aria-label="Delete task"]') as HTMLElement;
+    deleteButton.focus();
+    fireEvent.keyDown(deleteButton, { key: "Escape" });
+    expect(document.activeElement).toBe(fakeTaskInput);
+  });
+
+  it("i on DeleteButton (child) focuses TaskInput via event bubbling", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(baseTask());
+    const deleteButton = container.querySelector('[aria-label="Delete task"]') as HTMLElement;
+    deleteButton.focus();
+    fireEvent.keyDown(deleteButton, { key: "i" });
+    expect(document.activeElement).toBe(fakeTaskInput);
+  });
+
+  it("i on RetryAction (child) focuses TaskInput via event bubbling", () => {
+    const fakeTaskInput = injectFakeInput();
+    const task = baseTask({ id: "task-retry-i-shortcut" });
+    __captureSyncMutators.markExhausted(task.id, () => undefined);
+    const { container } = renderRowWithDeleteClient(task);
+    const retryButton = container.querySelector(".task-row__retry-action") as HTMLElement;
+    retryButton.focus();
+    fireEvent.keyDown(retryButton, { key: "i" });
+    expect(document.activeElement).toBe(fakeTaskInput);
+  });
+});

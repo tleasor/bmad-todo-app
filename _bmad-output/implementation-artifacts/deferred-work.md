@@ -149,6 +149,16 @@
 - **[optional]** `e2e/keyboard.spec.ts` — Focus restoration after ErrorMessage unmounts (successful retry) not tested. Out of scope; no AC covers post-retry focus management in this story.
 - **[optional]** `e2e/keyboard.spec.ts` — Tab focus during the `.task-row--leaving` delete animation not tested. Out of scope; owned by Story 3.2/3.3 scope.
 
+## Deferred from: code review of 4-3-escape-and-i-shortcut-to-return-focus-to-taskinput (2026-05-01)
+
+- **[optional]** Duplicate `document.querySelector('[aria-label="New task"]')` selector hardcoded in 3 locations: `TaskRow.tsx` (×2) and `UndoSnackbar.tsx` (×1). If the `aria-label` ever changes, all three call-sites must be updated. Extract as a named constant or utility. Pre-existing pattern already established by the `ArrowUp` handler.
+- **[optional]** `Escape` and `i` handlers in `handleRowKeyDown` have no guard for the case where a modal or `<dialog>` is open elsewhere on the page. `Escape` is the conventional dismiss key for dialogs; if a future overlay is added, the row handler fires concurrently and jumps focus to TaskInput unexpectedly. No modals exist today.
+- **[optional]** `i` shortcut fires for any future text-input descendant of `<li>`. If an inline-edit field is ever added inside a task row, `i` keydown will steal focus to TaskInput rather than typing the character. Guard would need to check `event.target` element type.
+- **[optional]** Double Escape collision: pressing Escape on a row returns focus to TaskInput (preserving draft); pressing Escape *again* on TaskInput clears the draft. The two-keypress sequence is intentional but untested as a combined flow.
+- **[optional]** `RetryAction` `Escape`/`i` behavior relies on implicit event bubbling to the `<li>` handler — no explicit `onKeyDown` on the RetryAction button itself, unlike UndoSnackbar. If RetryAction ever gains `stopPropagation`, the shortcuts silently break. E2E covers regression.
+- **[optional]** E2E RetryAction test: `page.unroute("**/api/tasks")` is called after asserting the Retry button is visible but without awaiting network idle or animation settle. Minor timing assumption; low-risk today.
+- **[optional]** No unit test asserting `event.preventDefault()` was called for `i` and `Escape` shortcuts in `handleRowKeyDown`. The Space handler has an explicit `preventDefault` spy test. If the `preventDefault` call is removed in a future refactor, the only failing signal would be the E2E test.
+
 ## Deferred from: code review of 4-1-arrow-up-down-j-k-row-navigation (2026-05-01)
 
 - **[pre-epic-4]** `apps/web/src/components/TaskRow.tsx:36-51` — Story 4.4 typing-anywhere forward-compat hazard: if Story 4.4 adds a document-level keydown listener, its precedence vs. the row-level `j`/`k` handlers is unspecified. The epic spec excludes `j`/`k` from typing-anywhere-captures, but no integration contract or ordering guard exists today. Story 4.4 must define the precedence explicitly.

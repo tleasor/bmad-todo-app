@@ -75,3 +75,43 @@ describe("UndoSnackbar", () => {
     expect(queryByRole("status")).toBeNull();
   });
 });
+
+describe("UndoSnackbar keyboard shortcuts", () => {
+  let fakeInput: HTMLInputElement | null = null;
+
+  afterEach(() => {
+    fakeInput?.remove();
+    fakeInput = null;
+    cleanup();
+  });
+
+  it("Escape on Undo button focuses TaskInput", () => {
+    const task = makeTask();
+    __deleteUndoMutators.setEntry(task.id, { task, index: 0, deletedAt: 1_700_000_000_001 });
+    const el = document.createElement("input");
+    el.setAttribute("aria-label", "New task");
+    document.body.appendChild(el);
+    fakeInput = el;
+
+    const { getByRole } = renderSnackbar();
+    const undoButton = getByRole("button", { name: "Undo" });
+    undoButton.focus();
+    fireEvent.keyDown(undoButton, { key: "Escape" });
+    expect(document.activeElement).toBe(fakeInput);
+  });
+
+  it("i on Undo button focuses TaskInput", () => {
+    const task = makeTask();
+    __deleteUndoMutators.setEntry(task.id, { task, index: 0, deletedAt: 1_700_000_000_001 });
+    const el = document.createElement("input");
+    el.setAttribute("aria-label", "New task");
+    document.body.appendChild(el);
+    fakeInput = el;
+
+    const { getByRole } = renderSnackbar();
+    const undoButton = getByRole("button", { name: "Undo" });
+    undoButton.focus();
+    fireEvent.keyDown(undoButton, { key: "i" });
+    expect(document.activeElement).toBe(fakeInput);
+  });
+});

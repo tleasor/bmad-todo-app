@@ -429,6 +429,216 @@ test.describe("keyboard delete — Delete and Backspace on focused row", () => {
   });
 });
 
+test.describe("escape and i shortcut to return focus to TaskInput", () => {
+  test("Escape from row container focuses TaskInput", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "esc-row-task");
+
+    const row = page.getByRole("listitem").filter({ hasText: "esc-row-task" });
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("New task")).toBeFocused();
+  });
+
+  test("i from row container focuses TaskInput without appending character", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "i-shortcut-task");
+
+    await page.getByLabel("New task").fill("draft");
+    await page.keyboard.press("Tab");
+    const row = page.getByRole("listitem").filter({ hasText: "i-shortcut-task" });
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("i");
+    await expect(page.getByLabel("New task")).toBeFocused();
+    await expect(page.getByLabel("New task")).toHaveValue("draft");
+  });
+
+  test("Escape preserves existing TaskInput value", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "esc-preserve-task");
+
+    await page.getByLabel("New task").fill("draft text");
+    await page.keyboard.press("Tab");
+    const row = page.getByRole("listitem").filter({ hasText: "esc-preserve-task" });
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("New task")).toBeFocused();
+    await expect(page.getByLabel("New task")).toHaveValue("draft text");
+  });
+
+  test("Escape from DeleteButton focuses TaskInput", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "esc-delete-btn-task");
+
+    const row = page.getByRole("listitem").filter({ hasText: "esc-delete-btn-task" });
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab"); // → row container
+    await page.keyboard.press("Tab"); // → Checkbox
+    await page.keyboard.press("Tab"); // → DeleteButton
+    await expect(row.getByRole("button", { name: "Delete task" })).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("New task")).toBeFocused();
+  });
+
+  test("i from DeleteButton focuses TaskInput without appending character", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "i-delete-btn-task");
+
+    const row = page.getByRole("listitem").filter({ hasText: "i-delete-btn-task" });
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab"); // → row container
+    await page.keyboard.press("Tab"); // → Checkbox
+    await page.keyboard.press("Tab"); // → DeleteButton
+    await expect(row.getByRole("button", { name: "Delete task" })).toBeFocused();
+
+    await page.keyboard.press("i");
+    await expect(page.getByLabel("New task")).toBeFocused();
+    await expect(page.getByLabel("New task")).toHaveValue("");
+  });
+
+  test("Escape from RetryAction focuses TaskInput", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "normal-after-retry-esc");
+
+    await page.route("**/api/tasks", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: { code: "validation_error", message: "test-induced" },
+            requestId: "test",
+          }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    const text = `esc-retry-${Date.now()}`;
+    await page.getByLabel("New task").fill(text);
+    await page.getByLabel("New task").press("Enter");
+    const row = page.getByRole("listitem").filter({ hasText: text });
+    await expect(row.getByRole("button", { name: "Retry" })).toBeVisible();
+    await page.unroute("**/api/tasks");
+
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab"); // → exhausted row container
+    await expect(row).toBeFocused();
+    await page.keyboard.press("Tab"); // → Checkbox
+    await page.keyboard.press("Tab"); // → RetryAction
+    await expect(row.getByRole("button", { name: "Retry" })).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("New task")).toBeFocused();
+  });
+
+  test("i from RetryAction focuses TaskInput without appending character", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+
+    await page.route("**/api/tasks", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: { code: "validation_error", message: "test-induced" },
+            requestId: "test",
+          }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    const text = `i-retry-${Date.now()}`;
+    await page.getByLabel("New task").fill(text);
+    await page.getByLabel("New task").press("Enter");
+    const row = page.getByRole("listitem").filter({ hasText: text });
+    await expect(row.getByRole("button", { name: "Retry" })).toBeVisible();
+    await page.unroute("**/api/tasks");
+
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab"); // → exhausted row container
+    await expect(row).toBeFocused();
+    await page.keyboard.press("Tab"); // → Checkbox
+    await page.keyboard.press("Tab"); // → RetryAction
+    await expect(row.getByRole("button", { name: "Retry" })).toBeFocused();
+
+    await page.keyboard.press("i");
+    await expect(page.getByLabel("New task")).toBeFocused();
+    await expect(page.getByLabel("New task")).toHaveValue("");
+  });
+
+  test("Escape from UndoSnackbar Undo button focuses TaskInput", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "esc-undo-task");
+
+    const row = page.getByRole("listitem").filter({ hasText: "esc-undo-task" });
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("Delete");
+    await expect(row).not.toBeVisible({ timeout: 2000 });
+
+    await page.getByRole("button", { name: "Undo" }).focus();
+    await expect(page.getByRole("button", { name: "Undo" })).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("New task")).toBeFocused();
+  });
+
+  test("i from UndoSnackbar Undo button focuses TaskInput without appending character", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "i-undo-task");
+
+    const row = page.getByRole("listitem").filter({ hasText: "i-undo-task" });
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("Delete");
+    await expect(row).not.toBeVisible({ timeout: 2000 });
+
+    await page.getByRole("button", { name: "Undo" }).focus();
+    await expect(page.getByRole("button", { name: "Undo" })).toBeFocused();
+
+    await page.keyboard.press("i");
+    await expect(page.getByLabel("New task")).toBeFocused();
+    await expect(page.getByLabel("New task")).toHaveValue("");
+  });
+
+  test("i in TaskInput appends i normally (shortcut scoped to row elements)", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "scope-test-task");
+
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("i");
+    await expect(page.getByLabel("New task")).toHaveValue("i");
+
+    await page.keyboard.press("Escape");
+  });
+});
+
 test.describe("keyboard toggle — Space on focused row", () => {
   test("Tab into list, Space toggles, focus stays on row", async ({ page }) => {
     await page.goto("/");

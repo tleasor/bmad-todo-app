@@ -56,6 +56,14 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
         allRows[idx - 1]?.focus();
       }
     }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      (document.querySelector('[aria-label="New task"]') as HTMLElement | null)?.focus();
+    }
+    if (event.key === "i" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      (document.querySelector('[aria-label="New task"]') as HTMLElement | null)?.focus();
+    }
   };
 
   const handleDelete = (): void => {
