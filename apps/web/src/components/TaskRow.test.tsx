@@ -448,3 +448,97 @@ describe("TaskRow.css contract", () => {
     expect(checkboxInReduce).toBeLessThan(hoverStart);
   });
 });
+
+describe("TaskRow keyboard arrow navigation", () => {
+  const task1 = baseTask({ id: "task-nav-1", text: "first task" });
+  const task2 = baseTask({ id: "task-nav-2", text: "second task" });
+
+  const renderTwoRows = (): { li1: HTMLElement; li2: HTMLElement } => {
+    _tasksApiSeams.deleteFetch = mock(
+      (_id: string): Promise<TasksDeleteResponse> =>
+        new Promise<TasksDeleteResponse>(() => undefined),
+    );
+    render(() => (
+      <QueryClientProvider client={noRetryClient()}>
+        <ul>
+          <TaskRow task={task1} />
+          <TaskRow task={task2} />
+        </ul>
+      </QueryClientProvider>
+    ));
+    const [li1, li2] = Array.from(document.querySelectorAll("[data-task-id]")) as HTMLElement[];
+    return { li1: li1!, li2: li2! };
+  };
+
+  let fakeInput: HTMLInputElement | null = null;
+
+  afterEach(() => {
+    fakeInput?.remove();
+    fakeInput = null;
+    cleanup();
+  });
+
+  const injectFakeInput = (): HTMLInputElement => {
+    const el = document.createElement("input");
+    el.setAttribute("aria-label", "New task");
+    el.setAttribute("tabindex", "0");
+    document.body.appendChild(el);
+    fakeInput = el;
+    return el;
+  };
+
+  it("ArrowDown on the <li> focuses the next [data-task-id] element", () => {
+    const { li1, li2 } = renderTwoRows();
+    li1.focus();
+    fireEvent.keyDown(li1, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(li2);
+  });
+
+  it("ArrowDown on the last <li> is a no-op (stays focused)", () => {
+    const { container } = renderRowWithDeleteClient(task1);
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(li);
+  });
+
+  it("j key on the <li> focuses the next [data-task-id] element", () => {
+    const { li1, li2 } = renderTwoRows();
+    li1.focus();
+    fireEvent.keyDown(li1, { key: "j" });
+    expect(document.activeElement).toBe(li2);
+  });
+
+  it("ArrowUp on the first <li> focuses TaskInput", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(task1);
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(fakeTaskInput);
+  });
+
+  it("ArrowUp on a non-first <li> focuses the previous row", () => {
+    const { li1, li2 } = renderTwoRows();
+    li2.focus();
+    fireEvent.keyDown(li2, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(li1);
+  });
+
+  it("k key on the first <li> focuses TaskInput", () => {
+    const fakeTaskInput = injectFakeInput();
+    const { container } = renderRowWithDeleteClient(task1);
+    const li = container.querySelector("li")!;
+    li.focus();
+    fireEvent.keyDown(li, { key: "k" });
+    expect(document.activeElement).toBe(fakeTaskInput);
+  });
+
+  it("Arrow keys on a child element do not fire row-level navigation", () => {
+    const { li1, li2 } = renderTwoRows();
+    li1.focus();
+    const checkbox = li1.querySelector('[role="checkbox"]') as HTMLElement;
+    fireEvent.keyDown(checkbox, { key: "ArrowDown" });
+    expect(document.activeElement).not.toBe(li2);
+  });
+});

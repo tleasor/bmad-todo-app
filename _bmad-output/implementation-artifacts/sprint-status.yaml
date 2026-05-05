@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-28
-last_updated: 2026-05-01 (epic-3 → done)
+last_updated: 2026-05-01 (4-1 → done)
 project: bmad-todo-app
 project_key: NOKEY
 tracking_system: file-system
@@ -69,8 +69,8 @@ development_status:
   3-4-undosnackbar-with-cmd-ctrl-z-concurrent-delete-collapsing-restore-at-original-position: done
   epic-3-retrospective: done
 
-  epic-4: backlog
-  4-1-arrow-up-down-j-k-row-navigation: backlog
+  epic-4: in-progress
+  4-1-arrow-up-down-j-k-row-navigation: done
   4-2-tab-order-within-and-between-rows: backlog
   4-3-escape-and-i-shortcut-to-return-focus-to-taskinput: backlog
   4-4-typing-anywhere-captures: backlog

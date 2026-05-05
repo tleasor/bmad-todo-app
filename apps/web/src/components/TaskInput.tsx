@@ -29,6 +29,11 @@ export function TaskInput(props: TaskInputProps): JSX.Element {
     if (event.key === "Escape" && value() !== "") {
       setValue("");
     }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      const firstRow = document.querySelector("[data-task-id]") as HTMLElement | null;
+      firstRow?.focus();
+    }
   };
 
   return (

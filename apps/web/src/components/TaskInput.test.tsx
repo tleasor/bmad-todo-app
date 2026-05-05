@@ -141,3 +141,37 @@ describe("TaskInput", () => {
     expect(blocking).toEqual([]);
   });
 });
+
+describe("TaskInput arrow-down navigation", () => {
+  let fakeLi: HTMLElement | null = null;
+
+  afterEach(() => {
+    fakeLi?.remove();
+    fakeLi = null;
+    cleanup();
+  });
+
+  const injectFakeRow = (id = "fake-row-id"): HTMLElement => {
+    const el = document.createElement("li");
+    el.setAttribute("data-task-id", id);
+    el.setAttribute("tabindex", "0");
+    document.body.appendChild(el);
+    fakeLi = el;
+    return el;
+  };
+
+  it("ArrowDown focuses the first [data-task-id] element when list is populated", () => {
+    const fakeRow = injectFakeRow();
+    const { input } = renderTaskInput();
+    input.focus();
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(fakeRow);
+  });
+
+  it("ArrowDown is a no-op when no [data-task-id] element exists", () => {
+    const { input } = renderTaskInput();
+    input.focus();
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(input);
+  });
+});

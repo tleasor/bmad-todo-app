@@ -21,6 +21,7 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
   onCleanup(() => clearTogglePendingTimerForTask(props.task.id));
 
   const handleRowKeyDown = (event: KeyboardEvent): void => {
+    if (event.isComposing) return;
     if (event.key === " " && event.target === event.currentTarget) {
       event.preventDefault();
       if (toggleMutation.isPending) return;
@@ -32,6 +33,28 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
     ) {
       event.preventDefault();
       handleDelete();
+    }
+    if ((event.key === "ArrowDown" || event.key === "j") && event.target === event.currentTarget) {
+      event.preventDefault();
+      const allRows = Array.from(
+        document.querySelectorAll("[data-task-id]:not(.task-row--leaving)"),
+      ) as HTMLElement[];
+      const idx = allRows.findIndex((el) => el.dataset.taskId === props.task.id);
+      if (idx === -1) return;
+      allRows[idx + 1]?.focus();
+    }
+    if ((event.key === "ArrowUp" || event.key === "k") && event.target === event.currentTarget) {
+      event.preventDefault();
+      const allRows = Array.from(
+        document.querySelectorAll("[data-task-id]:not(.task-row--leaving)"),
+      ) as HTMLElement[];
+      const idx = allRows.findIndex((el) => el.dataset.taskId === props.task.id);
+      if (idx === -1) return;
+      if (idx === 0) {
+        (document.querySelector('[aria-label="New task"]') as HTMLElement | null)?.focus();
+      } else {
+        allRows[idx - 1]?.focus();
+      }
     }
   };
 
