@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import type { Task, TasksDeleteResponse, TasksPatchBody, TasksPatchResponse } from "../data/api";
 import { _tasksApiSeams } from "../data/api";
 import { __captureSyncMutators, __resetCaptureSyncStoreForTests } from "../data/captureSyncStore";
+import { __resetFirstDeleteAnnouncementForTests } from "../data/queries";
 import { __resetToggleSyncStoreForTests, __toggleSyncMutators } from "../data/toggleSyncStore";
 import { TaskRow } from "./TaskRow";
 
@@ -21,6 +22,7 @@ afterEach(() => {
   cleanup();
   __resetCaptureSyncStoreForTests();
   __resetToggleSyncStoreForTests();
+  __resetFirstDeleteAnnouncementForTests();
 });
 
 const baseTask = (overrides: Partial<Task> = {}): Task => ({
@@ -113,7 +115,7 @@ describe("TaskRow", () => {
     const { getByLabelText, container } = renderRow(task);
     const li = container.querySelector("li")!;
     fireEvent.click(getByLabelText("Delete task"));
-    fireEvent.animationEnd(li);
+    fireEvent.animationEnd(li, { animationName: "task-row-leave" });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(deleteMock.mock.calls).toHaveLength(1);
     expect(deleteMock.mock.calls[0]?.[0]).toBe(task.id);
@@ -341,6 +343,53 @@ describe("TaskRow keyboard Space handler", () => {
     Object.defineProperty(event, "preventDefault", { value: preventDefaultSpy });
     li.dispatchEvent(event);
     expect(preventDefaultSpy.mock.calls).toHaveLength(1);
+  });
+});
+
+describe("TaskRow keyboard Delete/Backspace handler", () => {
+  it("Delete on the <li> container applies task-row--leaving and calls deleteFetch after animationend", async () => {
+    const deleteMock = mock(
+      (_id: string): Promise<TasksDeleteResponse> =>
+        new Promise<TasksDeleteResponse>(() => undefined),
+    );
+    _tasksApiSeams.deleteFetch = deleteMock;
+    const { container } = renderRow(baseTask());
+    const li = container.querySelector("li")!;
+    fireEvent.keyDown(li, { key: "Delete" });
+    expect(li.classList.contains("task-row--leaving")).toBe(true);
+    fireEvent.animationEnd(li, { animationName: "task-row-leave" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(deleteMock.mock.calls).toHaveLength(1);
+    expect(deleteMock.mock.calls[0]?.[0]).toBe("0193f000-0000-7000-8000-000000000000");
+  });
+
+  it("Backspace on the <li> container applies task-row--leaving and calls deleteFetch after animationend", async () => {
+    const deleteMock = mock(
+      (_id: string): Promise<TasksDeleteResponse> =>
+        new Promise<TasksDeleteResponse>(() => undefined),
+    );
+    _tasksApiSeams.deleteFetch = deleteMock;
+    const { container } = renderRow(baseTask());
+    const li = container.querySelector("li")!;
+    fireEvent.keyDown(li, { key: "Backspace" });
+    expect(li.classList.contains("task-row--leaving")).toBe(true);
+    fireEvent.animationEnd(li, { animationName: "task-row-leave" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(deleteMock.mock.calls).toHaveLength(1);
+    expect(deleteMock.mock.calls[0]?.[0]).toBe("0193f000-0000-7000-8000-000000000000");
+  });
+
+  it("Delete on a child button does not trigger row-level delete", async () => {
+    const deleteMock = mock(
+      (_id: string): Promise<TasksDeleteResponse> =>
+        new Promise<TasksDeleteResponse>(() => undefined),
+    );
+    _tasksApiSeams.deleteFetch = deleteMock;
+    const { getByRole } = renderRow(baseTask());
+    const checkbox = getByRole("checkbox");
+    fireEvent.keyDown(checkbox, { key: "Delete" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(deleteMock.mock.calls).toHaveLength(0);
   });
 });
 

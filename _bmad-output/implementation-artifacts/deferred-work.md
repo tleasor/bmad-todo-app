@@ -121,6 +121,12 @@
 - **[optional]** `apps/web/src/components/TaskRow.test.tsx` — No unit test for the `isLeaving() === false` guard path on `animationend` (negative: spurious `animationend` fires when row is not leaving should not call `deleteMutation.mutate`). Low risk given current implementation; add alongside any future `animationName`-guard work.
 - **[optional]** `e2e/manage.spec.ts:157` — E2E focus-landing tests assert `document.activeElement` after `.click()` but do not verify the "focus moves BEFORE `setIsLeaving(true)`" ordering constraint from AC #7. Tests rely on synchronous execution order being stable; add an intermediate `expect(...).toHaveAttribute` assertion to enforce the invariant if the focus logic is ever refactored.
 
+## Deferred from: code review of 3-3-keyboard-delete-delete-and-backspace-on-focused-row-liveregion-announcements (2026-05-01)
+
+- **[optional]** `apps/web/src/data/queries.ts:35` — `navigator.platform` is deprecated; spec explicitly accepted this tradeoff for MVP. Functional on real browsers (Chrome 120, Edge 120, Firefox 120, Safari 15). Revisit if a story adds user-agent detection for other features, or if `navigator.userAgentData.platform` achieves broader adoption.
+- **[optional]** `apps/web/src/components/TaskRow.tsx:38` — Double-delete race: no `isLeaving()` guard before calling `handleDelete()` in the new keyboard handler. Pre-existing behavior (`handleDelete` unchanged from Story 3.2); `animationend` fires once per animation so actual double-mutation risk is low. Add `if (isLeaving()) return;` guard if future testing reveals an actual issue.
+- **[optional]** `apps/web/src/data/queries.ts:37` — `firstDeleteAnnouncementSent` is not reset between E2E test sessions (page reload would reset it, but the flag lives in JS module state). No E2E test verifies announcement text, so this has no current test impact. By design: the flag is session-scoped per AC4/AC5.
+
 ## Deferred from: code review of 3-1-backend-delete-api-tasks-id-idempotent (2026-05-01)
 
 - **[optional]** `e2e/capture.spec.ts` — E2E `beforeEach` fixture reset (`DELETE /api/tasks`) is awaited without asserting the response status. If the endpoint returns non-204 (e.g. wrong environment, server error), tests continue with dirty state and produce confusing, non-deterministic failures. Fix: assert `res.status() === 204` in the beforeEach.

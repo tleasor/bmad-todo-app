@@ -18,17 +18,30 @@ import {
   LIVE_REGION_RETRY_EXHAUSTED,
   LIVE_REGION_SAVED,
   LIVE_REGION_SAVING,
+  LIVE_REGION_TASK_DELETED,
+  LIVE_REGION_TASK_DELETED_UNDO_MAC,
+  LIVE_REGION_TASK_DELETED_UNDO_OTHER,
 } from "./announcements";
-import { _tasksApiSeams, TasksApiError, tasksApi, type Task, type TasksGetResponse } from "./api";
+import {
+  _tasksApiSeams,
+  TasksApiError,
+  tasksApi,
+  type Task,
+  type TasksDeleteResponse,
+  type TasksGetResponse,
+} from "./api";
 import { __captureSyncStorePeek, __resetCaptureSyncStoreForTests } from "./captureSyncStore";
 import { __resetToggleSyncStoreForTests, __toggleSyncStorePeek } from "./toggleSyncStore";
 import { tasksQueryKey } from "./keys";
 import {
   __clearPendingTimersForTests,
   __clearTogglePendingTimersForTests,
+  __resetFirstDeleteAnnouncementForTests,
+  __setIsMacForTests,
   computeRetryDecision,
   computeRetryDelay,
   useCreateTask,
+  useDeleteTask,
   useTasks,
   useToggleTask,
 } from "./queries";
@@ -823,5 +836,98 @@ describe("useToggleTask", () => {
     await waitFor(() => (probe.mutation().isSuccess ? true : undefined));
     expect(capturedCancelCount).toBe(1);
     expect(cancelMock.mock.calls[0]?.[0]).toEqual({ queryKey: tasksQueryKey });
+  });
+});
+
+describe("useDeleteTask announcement", () => {
+  let originalDeleteFetch: typeof _tasksApiSeams.deleteFetch;
+
+  beforeEach(() => {
+    originalDeleteFetch = _tasksApiSeams.deleteFetch;
+    __resetLiveRegionForTests();
+    __resetFirstDeleteAnnouncementForTests();
+    __setIsMacForTests(false);
+  });
+
+  afterEach(() => {
+    _tasksApiSeams.deleteFetch = originalDeleteFetch;
+    __resetLiveRegionForTests();
+    __resetFirstDeleteAnnouncementForTests();
+    __setIsMacForTests(false);
+  });
+
+  const renderProbe = (
+    client: QueryClient,
+  ): { mutation: () => ReturnType<typeof useDeleteTask> } => {
+    let captured: ReturnType<typeof useDeleteTask> | undefined;
+    const Probe = (): JSX.Element => {
+      captured = useDeleteTask();
+      return <div />;
+    };
+    renderWithClient(client, () => (
+      <>
+        <LiveRegion />
+        <Probe />
+      </>
+    ));
+    return {
+      mutation: () => {
+        if (!captured) throw new Error("Probe did not capture the mutation");
+        return captured;
+      },
+    };
+  };
+
+  const waitDrain = (): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, LIVE_REGION_DRAIN_INTERVAL_MS * 2 + 20));
+
+  it("first delete on non-Mac announces undo-other string", async () => {
+    const taskId = "0193f000-0000-7000-8000-aa00000000a0";
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [mockTask({ id: taskId })]);
+    _tasksApiSeams.deleteFetch = mock((): Promise<TasksDeleteResponse> => new Promise(() => {}));
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate(taskId);
+
+    await waitDrain();
+    expect(__getLiveRegionHistoryForTests()).toContain(LIVE_REGION_TASK_DELETED_UNDO_OTHER);
+    expect(__getLiveRegionHistoryForTests()).not.toContain(LIVE_REGION_TASK_DELETED_UNDO_MAC);
+  });
+
+  it("first delete on Mac announces undo-mac string", async () => {
+    const taskId = "0193f000-0000-7000-8000-aa00000000b0";
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [mockTask({ id: taskId })]);
+    _tasksApiSeams.deleteFetch = mock((): Promise<TasksDeleteResponse> => new Promise(() => {}));
+    __setIsMacForTests(true);
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate(taskId);
+
+    await waitDrain();
+    expect(__getLiveRegionHistoryForTests()).toContain(LIVE_REGION_TASK_DELETED_UNDO_MAC);
+    expect(__getLiveRegionHistoryForTests()).not.toContain(LIVE_REGION_TASK_DELETED_UNDO_OTHER);
+  });
+
+  it("second delete announces plain deleted string", async () => {
+    const taskId1 = "0193f000-0000-7000-8000-aa00000000c0";
+    const taskId2 = "0193f000-0000-7000-8000-aa00000000c1";
+    const client = makeMutationClient();
+    client.setQueryData<Task[]>(tasksQueryKey, [
+      mockTask({ id: taskId1 }),
+      mockTask({ id: taskId2 }),
+    ]);
+    _tasksApiSeams.deleteFetch = mock((): Promise<TasksDeleteResponse> => new Promise(() => {}));
+
+    const probe = renderProbe(client);
+    probe.mutation().mutate(taskId1);
+    await waitDrain();
+    probe.mutation().mutate(taskId2);
+    await waitDrain();
+
+    const history = __getLiveRegionHistoryForTests();
+    expect(history[0]).toBe(LIVE_REGION_TASK_DELETED_UNDO_OTHER);
+    expect(history[1]).toBe(LIVE_REGION_TASK_DELETED);
   });
 });

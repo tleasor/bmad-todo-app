@@ -12,3 +12,6 @@ export const LIVE_REGION_SAVING = "Saving…";
 export const LIVE_REGION_SAVED = "Saved";
 export const LIVE_REGION_RETRY_EXHAUSTED = "Couldn't save — check connection.";
 export const LIST_FETCH_ERROR_COPY = "Couldn't load tasks — check connection.";
+export const LIVE_REGION_TASK_DELETED = "Task deleted";
+export const LIVE_REGION_TASK_DELETED_UNDO_MAC = "Task deleted. Press Command-Z to undo.";
+export const LIVE_REGION_TASK_DELETED_UNDO_OTHER = "Task deleted. Press Control-Z to undo.";

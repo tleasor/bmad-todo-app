@@ -26,6 +26,13 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
       if (toggleMutation.isPending) return;
       toggleMutation.mutate({ id: props.task.id, completed: !props.task.completed });
     }
+    if (
+      (event.key === "Delete" || event.key === "Backspace") &&
+      event.target === event.currentTarget
+    ) {
+      event.preventDefault();
+      handleDelete();
+    }
   };
 
   const handleDelete = (): void => {

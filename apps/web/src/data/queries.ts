@@ -18,6 +18,9 @@ import {
   LIVE_REGION_RETRY_EXHAUSTED,
   LIVE_REGION_SAVED,
   LIVE_REGION_SAVING,
+  LIVE_REGION_TASK_DELETED,
+  LIVE_REGION_TASK_DELETED_UNDO_MAC,
+  LIVE_REGION_TASK_DELETED_UNDO_OTHER,
 } from "./announcements";
 import { TasksApiError, tasksApi, type Task, type TasksPostBody } from "./api";
 import { __captureSyncMutators, __captureSyncStorePeek } from "./captureSyncStore";
@@ -28,6 +31,18 @@ type CreateTaskContext = { previous: Task[] };
 
 const pendingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const pendingToggleTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+let isMac: boolean = typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
+
+let firstDeleteAnnouncementSent = false;
+
+export const __resetFirstDeleteAnnouncementForTests = (): void => {
+  firstDeleteAnnouncementSent = false;
+};
+
+export const __setIsMacForTests = (val: boolean): void => {
+  isMac = val;
+};
 
 export const __clearTogglePendingTimersForTests = (): void => {
   for (const timer of pendingToggleTimers.values()) clearTimeout(timer);
@@ -215,6 +230,12 @@ export const useDeleteTask = (): UseMutationResult<void, Error, string, void> =>
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: tasksQueryKey });
       queryClient.setQueryData<Task[]>(tasksQueryKey, (prev) => prev?.filter((t) => t.id !== id));
+      if (!firstDeleteAnnouncementSent) {
+        firstDeleteAnnouncementSent = true;
+        announce(isMac ? LIVE_REGION_TASK_DELETED_UNDO_MAC : LIVE_REGION_TASK_DELETED_UNDO_OTHER);
+      } else {
+        announce(LIVE_REGION_TASK_DELETED);
+      }
     },
     onSuccess: () => undefined,
     // No rollback — FR27 / UX-DR16: row stays optimistically removed; refetch reconciles.

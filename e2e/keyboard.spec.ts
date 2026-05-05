@@ -16,12 +16,76 @@ const addTask = async (page: Page, text: string): Promise<void> => {
   await expect(page.getByRole("listitem").filter({ hasText: text })).toBeVisible();
 };
 
+test.beforeEach(async ({ request }) => {
+  await request.delete("/api/tasks");
+});
+
 test.describe.skip("keyboard-only navigation (Epic 4)", () => {
   test("placeholder — see Story 4.x for the real assertions", () => {
     // Real assertions land in Stories 4.1–4.5 (arrow nav, tab order,
     // Escape/i return-focus, typing-anywhere capture, focus-ring audit).
     // This file completes the architecture's five-spec inventory in
     // NFR-M2 by Epic-1 close.
+  });
+});
+
+test.describe("keyboard delete — Delete and Backspace on focused row", () => {
+  test("Tab into row, Delete key removes row, focus lands on next row", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "task-A");
+    await addTask(page, "task-B");
+
+    // newest-first order: B is row 0, A is row 1
+    const rowB = page.getByRole("listitem").filter({ hasText: "task-B" });
+    const rowA = page.getByRole("listitem").filter({ hasText: "task-A" });
+
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    await expect(rowB).toBeFocused();
+
+    await page.keyboard.press("Delete");
+    await expect(rowB).not.toBeVisible({ timeout: 2000 });
+    await expect(rowA).toBeFocused();
+  });
+
+  test("Tab into row, Backspace key removes row, focus lands on TaskInput when last row", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "only-task");
+
+    const row = page.getByRole("listitem").filter({ hasText: "only-task" });
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("Backspace");
+    await expect(row).not.toBeVisible({ timeout: 2000 });
+    await expect(page.getByLabel("New task")).toBeFocused();
+  });
+
+  test("axe-core reports no critical or serious violations after keyboard delete", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "axe-delete-task");
+
+    const row = page.getByRole("listitem").filter({ hasText: "axe-delete-task" });
+    await page.getByLabel("New task").focus();
+    await page.keyboard.press("Tab");
+    await expect(row).toBeFocused();
+
+    await page.keyboard.press("Delete");
+    await expect(row).not.toBeVisible({ timeout: 2000 });
+
+    const results = await new AxeBuilder({ page }).analyze();
+    const blocking = results.violations.filter(
+      (v) => v.impact === "critical" || v.impact === "serious",
+    );
+    expect(blocking).toEqual([]);
   });
 });
 
