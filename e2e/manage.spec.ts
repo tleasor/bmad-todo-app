@@ -1,6 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ request }) => {
+  await request.delete("/api/tasks");
+});
+
 const waitForListSettled = async (page: Page): Promise<void> => {
   await expect(async () => {
     const itemCount = await page.getByRole("listitem").count();
@@ -110,6 +114,92 @@ test.describe("manage tasks — toggle", () => {
     await expect(row.getByRole("checkbox")).toHaveAttribute("aria-checked", "true");
 
     const results = await new AxeBuilder({ page }).include(".task-row--completed").analyze();
+    const blocking = results.violations.filter(
+      (v) => v.impact === "critical" || v.impact === "serious",
+    );
+    expect(blocking).toEqual([]);
+  });
+});
+
+test.describe("manage tasks — delete", () => {
+  test("clicking DeleteButton removes the row", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "task-A");
+    await addTask(page, "task-B");
+
+    const items = page.getByRole("listitem");
+    await expect(items).toHaveCount(2);
+
+    // newest-first: task-B is index 0
+    const firstRow = items.nth(0);
+    const deleteBtn = firstRow.getByLabel("Delete task");
+    await deleteBtn.click();
+
+    await expect(page.getByRole("listitem")).toHaveCount(1, { timeout: 3000 });
+    await expect(page.getByRole("listitem").filter({ hasText: "task-A" })).toBeVisible();
+  });
+
+  test("focus lands on the next row when a first row is deleted", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "A");
+    await addTask(page, "B");
+    await addTask(page, "C");
+
+    // newest-first: C(0), B(1), A(2)
+    const items = page.getByRole("listitem");
+    const rowC = items.nth(0);
+    await rowC.getByLabel("Delete task").click();
+
+    // After deleting C (index 0), B should now be at index 0 and focused
+    const rowB = items.nth(0);
+    const isFocused = await rowB.evaluate((el) => el === document.activeElement);
+    expect(isFocused).toBe(true);
+  });
+
+  test("focus lands on the previous row when the last row is deleted", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "first");
+    await addTask(page, "second");
+
+    // newest-first: second(0), first(1)
+    const items = page.getByRole("listitem");
+    const lastRow = items.nth(1);
+    await lastRow.getByLabel("Delete task").click();
+
+    // After deleting first (index 1), second (now index 0) should be focused
+    const rowSecond = items.nth(0);
+    const isFocused = await rowSecond.evaluate((el) => el === document.activeElement);
+    expect(isFocused).toBe(true);
+  });
+
+  test("focus lands on TaskInput when the only row is deleted", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "solo-task");
+
+    const items = page.getByRole("listitem");
+    await expect(items).toHaveCount(1);
+    await items.nth(0).getByLabel("Delete task").click();
+
+    await expect(items).toHaveCount(0, { timeout: 3000 });
+    const taskInput = page.getByLabel("New task");
+    const isFocused = await taskInput.evaluate((el) => el === document.activeElement);
+    expect(isFocused).toBe(true);
+  });
+
+  test("axe-core reports no critical or serious violations after delete", async ({ page }) => {
+    await page.goto("/");
+    await waitForListSettled(page);
+    await addTask(page, "axe-delete-task");
+
+    const items = page.getByRole("listitem");
+    await items.nth(0).getByLabel("Delete task").click();
+    await expect(items).toHaveCount(0, { timeout: 3000 });
+
+    const results = await new AxeBuilder({ page }).analyze();
     const blocking = results.violations.filter(
       (v) => v.impact === "critical" || v.impact === "serious",
     );

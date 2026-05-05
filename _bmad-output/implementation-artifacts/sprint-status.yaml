@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-28
-last_updated: 2026-05-01 (epic-3 → in-progress; 3-1 → done)
+last_updated: 2026-05-01 (3-2 → done)
 project: bmad-todo-app
 project_key: NOKEY
 tracking_system: file-system
@@ -64,7 +64,7 @@ development_status:
 
   epic-3: in-progress
   3-1-backend-delete-api-tasks-id-idempotent: done
-  3-2-frontend-delete-deletebutton-optimistic-removal-animated-row-out-focus-landing-rule: backlog
+  3-2-frontend-delete-deletebutton-optimistic-removal-animated-row-out-focus-landing-rule: done
   3-3-keyboard-delete-delete-and-backspace-on-focused-row-liveregion-announcements: backlog
   3-4-undosnackbar-with-cmd-ctrl-z-concurrent-delete-collapsing-restore-at-original-position: backlog
   epic-3-retrospective: optional

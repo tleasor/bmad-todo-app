@@ -1,9 +1,9 @@
-import { Show, type JSX } from "solid-js";
+import { createSignal, onCleanup, Show, type JSX } from "solid-js";
 import type { Task } from "../data/api";
 import { LIVE_REGION_RETRY_EXHAUSTED } from "../data/announcements";
 import { useCaptureSyncStatus, type CaptureSyncEntry } from "../data/captureSyncStore";
 import { useToggleSyncStatus, type ToggleSyncEntry } from "../data/toggleSyncStore";
-import { useToggleTask } from "../data/queries";
+import { clearTogglePendingTimerForTask, useDeleteTask, useToggleTask } from "../data/queries";
 import "./TaskRow.css";
 
 interface TaskRowProps {
@@ -15,6 +15,10 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
   const toggleSync = useToggleSyncStatus(() => props.task.id);
   const sync = (): CaptureSyncEntry | ToggleSyncEntry | undefined => toggleSync() ?? captureSync();
   const toggleMutation = useToggleTask();
+  const deleteMutation = useDeleteTask();
+  const [isLeaving, setIsLeaving] = createSignal(false);
+
+  onCleanup(() => clearTogglePendingTimerForTask(props.task.id));
 
   const handleRowKeyDown = (event: KeyboardEvent): void => {
     if (event.key === " " && event.target === event.currentTarget) {
@@ -24,14 +28,33 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
     }
   };
 
+  const handleDelete = (): void => {
+    const allRows = Array.from(document.querySelectorAll("[data-task-id]")) as HTMLElement[];
+    const idx = allRows.findIndex((el) => el.dataset.taskId === props.task.id);
+    const focusTarget = allRows[idx + 1] ?? allRows[idx - 1] ?? null;
+    if (focusTarget) {
+      focusTarget.focus();
+    } else {
+      (document.querySelector('[aria-label="New task"]') as HTMLElement | null)?.focus();
+    }
+    setIsLeaving(true);
+  };
+
   return (
     <li
       tabindex="0"
+      data-task-id={props.task.id}
       onKeyDown={handleRowKeyDown}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      on:animationend={(e) => {
+        if (isLeaving() && (e as AnimationEvent).animationName === "task-row-leave")
+          deleteMutation.mutate(props.task.id);
+      }}
       class="task-row flex flex-col py-3 px-4 min-[900px]:px-2 hover:bg-token-bg-subtle"
       classList={{
         "task-row--retry-exhausted": sync()?.status === "exhausted",
         "task-row--completed": props.task.completed,
+        "task-row--leaving": isLeaving(),
       }}
     >
       <div class="task-row__primary">
@@ -49,7 +72,7 @@ export function TaskRow(props: TaskRowProps): JSX.Element {
         <Show when={sync()?.status === "exhausted"}>
           <RetryAction onRetry={sync()?.retry ?? noop} />
         </Show>
-        <DeleteButton />
+        <DeleteButton onDelete={handleDelete} />
       </div>
       <Show when={sync()?.status === "exhausted"}>
         <ErrorMessage />
@@ -115,12 +138,13 @@ function CheckmarkIcon(): JSX.Element {
   );
 }
 
-function DeleteButton(): JSX.Element {
+function DeleteButton(props: { onDelete: () => void }): JSX.Element {
   return (
     <button
       type="button"
       aria-label="Delete task"
       class="task-row__delete shrink-0 inline-flex items-center justify-center"
+      onClick={props.onDelete}
     >
       <TrashIcon />
     </button>

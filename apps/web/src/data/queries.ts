@@ -40,6 +40,8 @@ const clearTogglePendingTimer = (id: string): void => {
   pendingToggleTimers.delete(id);
 };
 
+export const clearTogglePendingTimerForTask = (id: string): void => clearTogglePendingTimer(id);
+
 type ToggleTaskInput = { id: string; completed: boolean };
 
 export const computeRetryDecision = (failureCount: number, error: unknown): boolean => {
@@ -201,4 +203,21 @@ export const useCreateTask = (): UseMutationResult<
     },
   }));
   return observer;
+};
+
+export const useDeleteTask = (): UseMutationResult<void, Error, string, void> => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string, void>(() => ({
+    mutationKey: ["tasks", "delete"],
+    mutationFn: (id: string) => tasksApi.delete(id),
+    retry: computeRetryDecision,
+    retryDelay: computeRetryDelay,
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: tasksQueryKey });
+      queryClient.setQueryData<Task[]>(tasksQueryKey, (prev) => prev?.filter((t) => t.id !== id));
+    },
+    onSuccess: () => undefined,
+    // No rollback — FR27 / UX-DR16: row stays optimistically removed; refetch reconciles.
+    onError: () => undefined,
+  }));
 };

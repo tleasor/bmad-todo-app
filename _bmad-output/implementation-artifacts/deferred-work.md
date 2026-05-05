@@ -115,6 +115,12 @@
 - **[pre-epic-3]** `apps/web/src/data/queries.ts` — `pendingToggleTimers` entries are never removed when a `TaskRow` component unmounts. If a task is deleted (Story 3.2) while a toggle timer is in-flight, the timer fires and writes to `toggleSyncStore` for a dead task ID. *Story 3.2 must add a cleanup signal or guard the timer callback against missing task IDs.*
 - **[optional]** `apps/web/src/components/TaskRow.tsx` — When both `toggleSync` and `captureSync` have entries, capture retry is permanently masked. Architectural decision per AC5/spec.
 
+## Deferred from: code review of 3-2-frontend-delete-deletebutton-optimistic-removal-animated-row-out-focus-landing-rule (2026-05-01)
+
+- **[optional]** `apps/web/src/data/queries.ts:216` — Concurrent delete + toggle mutation: `cancelQueries` in `useDeleteTask.onMutate` cancels queries but not in-flight toggle mutations. If a toggle mutation is mid-flight when delete fires, toggle's `onError` may call `markExhausted` on a task that has already been optimistically removed from the cache and DOM. Pre-existing architectural constraint; the `onCleanup` timer cleanup mitigates the pending-timer path but not exhausted-state writes.
+- **[optional]** `apps/web/src/components/TaskRow.test.tsx` — No unit test for the `isLeaving() === false` guard path on `animationend` (negative: spurious `animationend` fires when row is not leaving should not call `deleteMutation.mutate`). Low risk given current implementation; add alongside any future `animationName`-guard work.
+- **[optional]** `e2e/manage.spec.ts:157` — E2E focus-landing tests assert `document.activeElement` after `.click()` but do not verify the "focus moves BEFORE `setIsLeaving(true)`" ordering constraint from AC #7. Tests rely on synchronous execution order being stable; add an intermediate `expect(...).toHaveAttribute` assertion to enforce the invariant if the focus logic is ever refactored.
+
 ## Deferred from: code review of 3-1-backend-delete-api-tasks-id-idempotent (2026-05-01)
 
 - **[optional]** `e2e/capture.spec.ts` — E2E `beforeEach` fixture reset (`DELETE /api/tasks`) is awaited without asserting the response status. If the endpoint returns non-204 (e.g. wrong environment, server error), tests continue with dirty state and produce confusing, non-deterministic failures. Fix: assert `res.status() === 204` in the beforeEach.

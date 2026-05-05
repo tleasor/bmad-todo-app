@@ -34,6 +34,12 @@ export type TasksPatchResponse = {
   response?: Response;
 };
 
+export type TasksDeleteResponse = {
+  data: null;
+  error: { status: number; value: unknown } | null;
+  response?: Response;
+};
+
 export interface TasksApiErrorArgs {
   status: number;
   message: string;
@@ -73,6 +79,7 @@ type TasksApiSurface = {
     post: (body: TasksPostBody) => Promise<TasksPostResponse>;
     (params: { id: string }): {
       patch: (body: TasksPatchBody) => Promise<TasksPatchResponse>;
+      delete: () => Promise<TasksDeleteResponse>;
     };
   };
 };
@@ -86,6 +93,9 @@ const tasksPost = (body: TasksPostBody): Promise<TasksPostResponse> =>
 const tasksPatch = (id: string, body: TasksPatchBody): Promise<TasksPatchResponse> =>
   (api.api as unknown as TasksApiSurface).tasks({ id }).patch(body);
 
+const tasksDelete = (id: string): Promise<TasksDeleteResponse> =>
+  (api.api as unknown as TasksApiSurface).tasks({ id }).delete();
+
 const readEnvelopeMessage = (value: unknown): string | undefined =>
   (value as { error?: { message?: string } } | undefined)?.error?.message;
 
@@ -98,6 +108,7 @@ export const _tasksApiSeams = {
   fetch: tasksGet,
   createFetch: tasksPost,
   patchFetch: tasksPatch,
+  deleteFetch: tasksDelete,
 };
 
 export const tasksApi = {
@@ -169,5 +180,22 @@ export const tasksApi = {
       throw new Error("tasks create: response body is not a valid Task");
     }
     return data;
+  },
+  delete: async (id: string): Promise<void> => {
+    const { error, response } = await _tasksApiSeams.deleteFetch(id);
+    if (error) {
+      const message =
+        readEnvelopeMessage(error.value) ?? `tasks delete failed: HTTP ${error.status}`;
+      const retryAfterMs =
+        error.status === 429
+          ? parseRetryAfter(response?.headers.get("retry-after") ?? null)
+          : undefined;
+      throw new TasksApiError({
+        status: error.status,
+        message,
+        code: readEnvelopeCode(error.value),
+        retryAfterMs,
+      });
+    }
   },
 };

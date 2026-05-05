@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, fireEvent, render } from "@solidjs/testing-library";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
-import type { Task, TasksPatchBody, TasksPatchResponse } from "../data/api";
+import type { Task, TasksDeleteResponse, TasksPatchBody, TasksPatchResponse } from "../data/api";
 import { _tasksApiSeams } from "../data/api";
 import { __captureSyncMutators, __resetCaptureSyncStoreForTests } from "../data/captureSyncStore";
 import { __resetToggleSyncStoreForTests, __toggleSyncMutators } from "../data/toggleSyncStore";
@@ -53,8 +53,18 @@ const renderRowWithClient = (task: Task): ReturnType<typeof render> => {
   return renderRow(task);
 };
 
+const originalDeleteFetch = _tasksApiSeams.deleteFetch;
+const renderRowWithDeleteClient = (task: Task): ReturnType<typeof render> => {
+  _tasksApiSeams.deleteFetch = mock(
+    (_id: string): Promise<TasksDeleteResponse> =>
+      new Promise<TasksDeleteResponse>(() => undefined),
+  );
+  return renderRow(task);
+};
+
 afterEach(() => {
   _tasksApiSeams.patchFetch = originalPatchFetch;
+  _tasksApiSeams.deleteFetch = originalDeleteFetch;
 });
 
 const assertNoEventHandlerAttributes = (root: HTMLElement): void => {
@@ -82,12 +92,38 @@ describe("TaskRow", () => {
     expect(getByText("buy milk")).toBeDefined();
   });
 
-  it("does not throw or remove the row when the delete button is clicked (no mutation wired)", () => {
-    const { getByLabelText } = renderRow(baseTask({ text: "still here" }));
+  it("clicking DeleteButton applies task-row--leaving class before animationend", () => {
+    const { getByLabelText, container } = renderRowWithDeleteClient(
+      baseTask({ text: "still here" }),
+    );
+    const li = container.querySelector("li")!;
     fireEvent.click(getByLabelText("Delete task"));
-    const items = document.querySelectorAll("li");
-    expect(items.length).toBe(1);
-    expect(items[0]?.textContent).toContain("still here");
+    expect(li.classList.contains("task-row--leaving")).toBe(true);
+    // Row is still in the DOM — mutation hasn't fired yet (awaiting animationend)
+    expect(document.querySelectorAll("li").length).toBe(1);
+  });
+
+  it("clicking DeleteButton calls deleteFetch with the task id after animationend", async () => {
+    const deleteMock = mock(
+      (_id: string): Promise<TasksDeleteResponse> =>
+        new Promise<TasksDeleteResponse>(() => undefined),
+    );
+    _tasksApiSeams.deleteFetch = deleteMock;
+    const task = baseTask();
+    const { getByLabelText, container } = renderRow(task);
+    const li = container.querySelector("li")!;
+    fireEvent.click(getByLabelText("Delete task"));
+    fireEvent.animationEnd(li);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(deleteMock.mock.calls).toHaveLength(1);
+    expect(deleteMock.mock.calls[0]?.[0]).toBe(task.id);
+  });
+
+  it("data-task-id attribute matches task.id", () => {
+    const task = baseTask();
+    const { container } = renderRow(task);
+    const li = container.querySelector("li")!;
+    expect(li.dataset.taskId).toBe(task.id);
   });
 
   it("does not throw or change aria-checked when the checkbox is clicked (no mutation wired)", () => {

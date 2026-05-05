@@ -83,6 +83,65 @@
   text-decoration-thickness: 1px;
 }
 
+/* DeleteButton base styles */
+.task-row__delete {
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition:
+    opacity var(--motion-short) ease-out,
+    color var(--motion-short) ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-row__delete {
+    transition: none;
+  }
+}
+
+/* Show delete button when row is focused via keyboard Tab */
+.task-row:focus .task-row__delete {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .task-row:hover .task-row__delete {
+    opacity: 1;
+  }
+
+  .task-row__delete:hover {
+    color: var(--color-status-error);
+    opacity: 1;
+  }
+}
+
+.task-row__delete:focus-visible {
+  color: var(--color-status-error);
+  opacity: 1;
+  outline: 2px solid var(--color-accent-default);
+  outline-offset: 2px;
+}
+
+@media (hover: none) {
+  .task-row__delete {
+    opacity: 1;
+  }
+}
+
+/* Exit animation */
+.task-row--leaving {
+  animation: task-row-leave var(--motion-medium) ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes task-row-leave {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* Checkbox completed state */
 .task-row__checkbox--completed {
   background: var(--color-accent-default);
